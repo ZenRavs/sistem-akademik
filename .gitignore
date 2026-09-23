@@ -1,0 +1,44 @@
+# ===================================================
+# Git Ignore - Sistem Informasi Akademik & PMB Online
+# ===================================================
+
+# Environment & Sensitive Credentials (DB Passwords)
+.env
+.env.local
+.env.*.local
+*.env
+!.env.example
+
+# Dependencies & Binaries
+/vendor/
+composer.phar
+
+# User Uploads (Ignore files, retain folder via .gitkeep)
+/public/uploads/user_photos/*
+!/public/uploads/user_photos/.gitkeep
+
+/public/uploads/pmb_docs/certificates/*
+!/public/uploads/pmb_docs/certificates/.gitkeep
+
+/public/uploads/pmb_docs/payments/*
+!/public/uploads/pmb_docs/payments/.gitkeep
+
+# Logs, Cache & Temp Files
+*.log
+/logs/
+/tmp/
+/temp/
+
+# OS Generated Files
+Thumbs.db
+Desktop.ini
+.DS_Store
+*.stackdump
+
+# Editor & IDE Configs
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+*.swp
+*.swo

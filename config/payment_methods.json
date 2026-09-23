@@ -1,0 +1,41 @@
+{
+  "virtual_accounts": [
+    {
+      "id": "mandiri",
+      "bank_code": "008",
+      "name": "Mandiri",
+      "display_name": "Bank Mandiri Virtual Account",
+      "is_active": true,
+      "badge_class": "bg-warning-subtle text-warning-emphasis",
+      "instructions": "Transfer melalui Livin' by Mandiri atau ATM Mandiri ke nomor Virtual Account di atas."
+    },
+    {
+      "id": "bri",
+      "bank_code": "002",
+      "name": "BRI",
+      "display_name": "Bank Rakyat Indonesia (BRIVA)",
+      "is_active": true,
+      "badge_class": "bg-primary-subtle text-primary-emphasis",
+      "instructions": "Transfer melalui BRImo atau ATM BRI dengan memilih menu Pembayaran BRIVA."
+    },
+    {
+      "id": "bca",
+      "bank_code": "014",
+      "name": "BCA",
+      "display_name": "Bank Central Asia Virtual Account",
+      "is_active": true,
+      "badge_class": "bg-info-subtle text-info-emphasis",
+      "instructions": "Transfer melalui BCA mobile, myBCA, atau ATM BCA ke nomor BCA Virtual Account."
+    }
+  ],
+  "manual_channels": [
+    {
+      "id": "cash",
+      "code": "CASH",
+      "name": "Tunai",
+      "display_name": "Loket Keuangan / TU Kampus",
+      "is_active": true,
+      "instructions": "Pembayaran tunai langsung di Loket Tata Usaha Gedung Rektorat Lt. 1."
+    }
+  ]
+}

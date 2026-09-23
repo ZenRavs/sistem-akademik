@@ -1,0 +1,49 @@
+{
+  "faculty": "Fakultas Ilmu Komputer (FIK)",
+  "description": "Daftar Tarif & Pricelist Keuangan FIK Universitas Dian Nuswantoro",
+  "default_due_days": 30,
+  "default_va_bank": "008",
+  "shared_fees": {
+    "cost_per_sks": 300000,
+    "spp_flat": 2000000,
+    "polyclinic_flat": 200000
+  },
+  "rates_by_major": {
+    "A11": {
+      "major_code": "A11",
+      "major_name": "Teknik Informatika",
+      "degree": "S1",
+      "ukt_pokok": 5500000
+    },
+    "A12": {
+      "major_code": "A12",
+      "major_name": "Sistem Informasi",
+      "degree": "S1",
+      "ukt_pokok": 5000000
+    },
+    "A14": {
+      "major_code": "A14",
+      "major_name": "Desain Komunikasi Visual",
+      "degree": "S1",
+      "ukt_pokok": 6000000
+    },
+    "A15": {
+      "major_code": "A15",
+      "major_name": "Ilmu Komunikasi",
+      "degree": "S1",
+      "ukt_pokok": 4500000
+    },
+    "A22": {
+      "major_code": "A22",
+      "major_name": "Teknik Informatika",
+      "degree": "D3",
+      "ukt_pokok": 4000000
+    },
+    "default": {
+      "major_code": "DEFAULT",
+      "major_name": "Rata-rata FIK",
+      "degree": "S1",
+      "ukt_pokok": 5000000
+    }
+  }
+}

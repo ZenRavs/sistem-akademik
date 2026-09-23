@@ -1,0 +1,16 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: sistem_akademik_app
+    restart: always
+    ports:
+      - "8000:80"
+    volumes:
+      # Mount folder projek lokal agar perubahan kode langsung ber-efek (Live Reload)
+      - .:/var/www/html
+    env_file:
+      - .env
