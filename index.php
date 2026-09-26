@@ -100,6 +100,34 @@ if (isset($_SESSION['active_tab'])) unset($_SESSION['active_tab']);
             border-color: #0f4c92;
             box-shadow: 0 0 0 0.25rem rgba(15, 76, 146, 0.15);
         }
+        .form-floating.password-wrapper {
+            position: relative;
+        }
+        .form-floating.password-wrapper .form-control {
+            padding-right: 3rem;
+        }
+        .btn-toggle-password {
+            position: absolute;
+            right: 0.75rem;
+            top: 50%;
+            transform: translateY(-50%);
+            z-index: 10;
+            background: none;
+            border: none;
+            color: #64748b;
+            padding: 0.35rem 0.5rem;
+            cursor: pointer;
+            line-height: 1;
+            font-size: 1.15rem;
+            transition: color 0.15s ease-in-out;
+        }
+        .btn-toggle-password:hover {
+            color: #0f4c92;
+        }
+        .btn-toggle-password:focus {
+            outline: none;
+            box-shadow: none;
+        }
     </style>
 </head>
 
@@ -169,9 +197,12 @@ if (isset($_SESSION['active_tab'])) unset($_SESSION['active_tab']);
                                 <input type="text" class="form-control" id="staff_username" name="username" placeholder="Username / NPP" required>
                                 <label for="staff_username"><i class="bi bi-person me-1"></i>Username / NPP</label>
                             </div>
-                            <div class="form-floating mb-3">
+                            <div class="form-floating mb-3 password-wrapper">
                                 <input type="password" class="form-control" id="staff_password" name="password" placeholder="Password" required>
                                 <label for="staff_password"><i class="bi bi-key me-1"></i>Password</label>
+                                <button type="button" class="btn-toggle-password" data-target="staff_password" title="Tampilkan / Sembunyikan Password" tabindex="-1">
+                                    <i class="bi bi-eye"></i>
+                                </button>
                             </div>
                             <div class="d-grid gap-2 mt-4">
                                 <button class="btn btn-accent py-2" type="submit">
@@ -179,11 +210,11 @@ if (isset($_SESSION['active_tab'])) unset($_SESSION['active_tab']);
                                 </button>
                             </div>
                         </form>
-                        <div class="d-flex justify-content-center mt-3 pt-2">
+                        <!-- <div class="d-flex justify-content-center mt-3 pt-2">
                             <button class="btn btn-sm btn-outline-secondary border-0 text-muted" type="button" data-bs-toggle="collapse" data-bs-target="#quickAccessCollapse" style="font-size: 0.78rem;">
                                 <i class="bi bi-shield-lock me-1"></i> Quick Access (Superadmin Testing)
                             </button>
-                        </div>
+                        </div> -->
                         <div class="collapse mt-2" id="quickAccessCollapse">
                             <div class="card card-body bg-light border-0 rounded-3 py-2 px-3" style="font-size: 0.8rem;">
                                 <code>
@@ -206,9 +237,12 @@ if (isset($_SESSION['active_tab'])) unset($_SESSION['active_tab']);
                                 <input type="text" class="form-control font-monospace" id="student_nim" name="username" placeholder="NIM Mahasiswa" required>
                                 <label for="student_nim"><i class="bi bi-card-heading me-1"></i>NIM Mahasiswa (contoh: A11.2026.00001)</label>
                             </div>
-                            <div class="form-floating mb-3">
+                            <div class="form-floating mb-3 password-wrapper">
                                 <input type="password" class="form-control" id="student_password" name="password" placeholder="Password" required>
                                 <label for="student_password"><i class="bi bi-key me-1"></i>Password Akun</label>
+                                <button type="button" class="btn-toggle-password" data-target="student_password" title="Tampilkan / Sembunyikan Password" tabindex="-1">
+                                    <i class="bi bi-eye"></i>
+                                </button>
                             </div>
                             <div class="d-grid gap-2 mt-4">
                                 <button class="btn btn-accent py-2" type="submit">
@@ -236,9 +270,12 @@ if (isset($_SESSION['active_tab'])) unset($_SESSION['active_tab']);
                                     <input type="text" class="form-control" id="app_username" name="username" placeholder="Username / Email" required>
                                     <label for="app_username"><i class="bi bi-envelope me-1"></i>Username / Email Pendaftar</label>
                                 </div>
-                                <div class="form-floating mb-3">
+                                <div class="form-floating mb-3 password-wrapper">
                                     <input type="password" class="form-control" id="app_password" name="password" placeholder="Password" required>
                                     <label for="app_password"><i class="bi bi-key me-1"></i>Password</label>
+                                    <button type="button" class="btn-toggle-password" data-target="app_password" title="Tampilkan / Sembunyikan Password" tabindex="-1">
+                                        <i class="bi bi-eye"></i>
+                                    </button>
                                 </div>
                                 <div class="d-grid gap-2 mt-4">
                                     <button class="btn btn-accent py-2" type="submit">
@@ -276,9 +313,12 @@ if (isset($_SESSION['active_tab'])) unset($_SESSION['active_tab']);
                                     <input type="text" class="form-control" id="reg_username" name="username" placeholder="Username" required>
                                     <label for="reg_username"><i class="bi bi-person-badge me-1"></i>Username</label>
                                 </div>
-                                <div class="form-floating mb-3">
+                                <div class="form-floating mb-3 password-wrapper">
                                     <input type="password" class="form-control" id="reg_password" name="password" placeholder="Password" minlength="4" required>
                                     <label for="reg_password"><i class="bi bi-lock me-1"></i>Password Akun</label>
+                                    <button type="button" class="btn-toggle-password" data-target="reg_password" title="Tampilkan / Sembunyikan Password" tabindex="-1">
+                                        <i class="bi bi-eye"></i>
+                                    </button>
                                 </div>
                                 <div class="d-grid gap-2 mt-4">
                                     <button class="btn btn-accent py-2" type="submit">
@@ -353,6 +393,21 @@ if (isset($_SESSION['active_tab'])) unset($_SESSION['active_tab']);
                         alert("Server error. [req: forceLogout]");
                     }
                 });
+            });
+
+            // Toggle Show/Hide Password
+            $(document).on('click', '.btn-toggle-password', function(e) {
+                e.preventDefault();
+                let targetId = $(this).data('target');
+                let input = $('#' + targetId);
+                let icon = $(this).find('i');
+                if (input.attr('type') === 'password') {
+                    input.attr('type', 'text');
+                    icon.removeClass('bi-eye').addClass('bi-eye-slash');
+                } else {
+                    input.attr('type', 'password');
+                    icon.removeClass('bi-eye-slash').addClass('bi-eye');
+                }
             });
         });
     </script>

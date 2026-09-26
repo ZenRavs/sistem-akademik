@@ -113,6 +113,8 @@ $currentMeta = $pageMeta[$view] ?? ['title' => 'Portal Dosen', 'subtitle' => 'Si
                             <span class="d-block fw-bold text-body text-truncate"><?= htmlspecialchars($userName) ?></span>
                             <small class="text-body-secondary text-truncate d-block">Dosen Pengajar FIK</small>
                         </li>
+                        <li><a class="dropdown-item py-2 btn-open-edit-my-profile" href="javascript:void(0)"><i class="bi bi-person-gear me-2 text-warning"></i>Edit Profile</a></li>
+                        <li><hr class="dropdown-divider my-1"></li>
                         <li><a class="dropdown-item text-danger py-2 btn-logout" href="javascript:void(0)"><i class="bi bi-box-arrow-right me-2"></i>Logout</a></li>
                     </ul>
                 </div>

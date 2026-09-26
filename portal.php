@@ -64,13 +64,13 @@ if (!$userLoginState || ($userLoginState['account_status'] ?? '') !== 'active') 
     exit;
 }
 
-// Single-Device Enforcement (validasi session_token)
-if (!empty($userLoginState['session_token']) && isset($_SESSION['user']['session_token'])) {
-    if ($_SESSION['user']['session_token'] !== $userLoginState['session_token']) {
+// Single-Device Enforcement & Validasi Sesi Aktif (validasi session_token)
+if (isset($_SESSION['user']['session_token'])) {
+    if (empty($userLoginState['session_token']) || $_SESSION['user']['session_token'] !== $userLoginState['session_token']) {
         $_SESSION = [];
         if (session_id()) session_destroy();
         session_start();
-        $_SESSION['error'] = 'Akun Anda telah masuk dari perangkat atau peramban lain. Sesi ini telah ditutup.';
+        $_SESSION['error'] = 'Sesi Anda telah berakhir, dihentikan oleh administrator, atau akun telah masuk dari peramban lain.';
         header("location: index.php");
         exit;
     }
@@ -406,8 +406,8 @@ if (!in_array($currentTheme, ['light', 'dark'])) {
                     url: 'src/api.php?req=sessionCheck',
                     dataType: 'json',
                     success: function(response) {
-                        if (response == 'timeout') {
-                            alert('Sesi Anda telah berakhir. Silakan login kembali.');
+                        if (response == 'timeout' || response == 'terminated') {
+                            alert(response == 'terminated' ? 'Sesi Anda telah dihentikan atau login di peramban lain. Silakan login kembali.' : 'Sesi Anda telah berakhir karena inaktif. Silakan login kembali.');
                             logout();
                         }
                     },
@@ -479,8 +479,271 @@ if (!in_array($currentTheme, ['light', 'dark'])) {
                     }
                 });
             });
+
+            // Event Handler: Buka Modal Edit Profile Saya
+            $(document).on('click', '.btn-open-edit-my-profile', function(e) {
+                e.preventDefault();
+                $('#modalProfileAlert').addClass('d-none');
+                $('#chkChangeMyPassword').prop('checked', false);
+                $('#secChangeMyPassword').addClass('d-none');
+                $('#my_profile_current_password, #my_profile_new_password, #my_profile_confirm_password').val('');
+                $('#my_profile_photo').val('');
+
+                $.ajax({
+                    url: 'src/api.php?req=getMyProfileDetail',
+                    type: 'GET',
+                    dataType: 'json',
+                    success: function(res) {
+                        if (res.status === 'success' && res.data) {
+                            let d = res.data;
+                            $('#my_profile_username').val(d.username || '');
+                            $('#my_profile_role').val(d.role || '');
+                            $('#my_profile_email').val(d.email || '');
+                            $('#my_profile_full_name').val(d.full_name || '');
+                            $('#my_profile_nik').val(d.nik || '');
+                            $('#my_profile_gender').val(d.gender || '');
+                            $('#my_profile_pob').val(d.pob || '');
+                            $('#my_profile_dob').val(d.dob || '');
+                            $('#my_profile_religion').val(d.religion || '');
+                            $('#my_profile_marital_status').val(d.marital_status || '');
+                            $('#my_profile_job_status').val(d.job_status || '');
+                            $('#my_profile_phone').val(d.phone || '');
+                            $('#my_profile_ktp_address').val(d.ktp_address || '');
+                            $('#my_profile_domicile_address').val(d.domicile_address || '');
+
+                            let avatarUrl = d.photo ? 'public/uploads/user_photos/' + d.photo : 'https://cdn-icons-png.freepik.com/512/3135/3135715.png';
+                            $('#my_profile_avatar_preview').attr('src', avatarUrl);
+
+                            let modalEl = document.getElementById('editMyProfileModal');
+                            let modal = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
+                            modal.show();
+                        } else {
+                            alert(res.message || "Gagal mengambil data profil.");
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        alert("Terjadi kesalahan jaringan saat mengambil data profil.");
+                    }
+                });
+            });
+
+            // Toggle Tampilan Form Ubah Password
+            $(document).on('change', '#chkChangeMyPassword', function() {
+                if ($(this).is(':checked')) {
+                    $('#secChangeMyPassword').removeClass('d-none');
+                } else {
+                    $('#secChangeMyPassword').addClass('d-none');
+                    $('#my_profile_current_password, #my_profile_new_password, #my_profile_confirm_password').val('');
+                }
+            });
+
+            // Submit Handler Form Edit Profile Saya
+            $(document).on('submit', '#formEditMyProfile', function(e) {
+                e.preventDefault();
+                let formData = new FormData(this);
+                let btn = $('#btnSaveMyProfile');
+                btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Menyimpan...');
+
+                $.ajax({
+                    url: 'src/api.php?req=updateMyProfile',
+                    type: 'POST',
+                    data: formData,
+                    contentType: false,
+                    processData: false,
+                    dataType: 'json',
+                    success: function(res) {
+                        btn.prop('disabled', false).html('<i class="bi bi-check-circle me-1"></i> Simpan Perubahan Profil');
+                        if (res.status === 'success') {
+                            alert(res.message);
+                            let modalEl = document.getElementById('editMyProfileModal');
+                            let modal = bootstrap.Modal.getInstance(modalEl);
+                            if (modal) modal.hide();
+                            location.reload();
+                        } else {
+                            $('#modalProfileAlertMsg').text(res.message);
+                            $('#modalProfileAlert').removeClass('d-none alert-success').addClass('alert-danger');
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        btn.prop('disabled', false).html('<i class="bi bi-check-circle me-1"></i> Simpan Perubahan Profil');
+                        $('#modalProfileAlertMsg').text("Terjadi kesalahan server saat memperbarui profil.");
+                        $('#modalProfileAlert').removeClass('d-none alert-success').addClass('alert-danger');
+                    }
+                });
+            });
         });
     </script>
+
+    <!-- Modal Edit Profile Saya -->
+    <div class="modal fade" id="editMyProfileModal" tabindex="-1" aria-labelledby="editMyProfileModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+            <form class="modal-content border-0 shadow" id="formEditMyProfile" enctype="multipart/form-data">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-header-title mb-0 fw-bold d-flex align-items-center gap-2" id="editMyProfileModalLabel">
+                        <i class="bi bi-person-gear"></i> Edit Profil Saya
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <!-- Alert Pesan Error/Sukses Modal -->
+                    <div id="modalProfileAlert" class="d-none alert alert-dismissible fade show mb-3" role="alert">
+                        <span id="modalProfileAlertMsg"></span>
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+
+                    <!-- Card 1: Informasi Akun (users_credential) -->
+                    <div class="card mb-4 border">
+                        <div class="card-header bg-body-tertiary fw-semibold py-2">
+                            <i class="bi bi-shield-lock text-primary me-2"></i>Informasi Akun & Kredensial (users_credential)
+                        </div>
+                        <div class="card-body">
+                            <div class="row g-3">
+                                <div class="col-md-4">
+                                    <label class="form-label fw-semibold small text-body-secondary mb-1">Username</label>
+                                    <input type="text" class="form-control form-control-sm bg-body-tertiary" id="my_profile_username" readonly disabled>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label fw-semibold small text-body-secondary mb-1">Peran / Role</label>
+                                    <input type="text" class="form-control form-control-sm bg-body-tertiary text-capitalize" id="my_profile_role" readonly disabled>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label fw-semibold small mb-1">Email <span class="text-danger">*</span></label>
+                                    <input type="email" class="form-control form-control-sm" name="email" id="my_profile_email" required>
+                                </div>
+
+                                <!-- Toggle Ubah Password -->
+                                <div class="col-12 mt-3">
+                                    <div class="p-3 bg-body-tertiary rounded-3 border">
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input" type="checkbox" id="chkChangeMyPassword">
+                                            <label class="form-check-label fw-semibold small text-body" for="chkChangeMyPassword">
+                                                <i class="bi bi-key-fill text-warning me-1"></i> Ganti Password Akun
+                                            </label>
+                                        </div>
+                                        <div id="secChangeMyPassword" class="row g-2 mt-2 d-none">
+                                            <div class="col-md-4">
+                                                <label class="form-label small text-body-secondary mb-1">Password Saat Ini</label>
+                                                <input type="password" class="form-control form-control-sm" name="current_password" id="my_profile_current_password" placeholder="Password lama">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label class="form-label small text-body-secondary mb-1">Password Baru</label>
+                                                <input type="password" class="form-control form-control-sm" name="new_password" id="my_profile_new_password" placeholder="Password baru (min 6 char)">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label class="form-label small text-body-secondary mb-1">Konfirmasi Password Baru</label>
+                                                <input type="password" class="form-control form-control-sm" name="confirm_password" id="my_profile_confirm_password" placeholder="Ulangi password baru">
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Card 2: Data Diri / Profil Personal (personal_profiles) -->
+                    <div class="card border">
+                        <div class="card-header bg-body-tertiary fw-semibold py-2">
+                            <i class="bi bi-person-vcard text-success me-2"></i>Data Diri & Profil Personal (personal_profiles)
+                        </div>
+                        <div class="card-body">
+                            <div class="row g-3">
+                                <!-- Foto Profil -->
+                                <div class="col-12 d-flex align-items-center gap-3 pb-3 border-bottom">
+                                    <div class="position-relative">
+                                        <img src="" id="my_profile_avatar_preview" class="rounded-circle object-fit-cover border shadow-sm" width="70" height="70" alt="Foto Profil">
+                                    </div>
+                                    <div>
+                                        <label class="form-label fw-semibold small mb-1">Foto Profil Baru (Opsional)</label>
+                                        <input type="file" class="form-control form-control-sm" name="photo" id="my_profile_photo" accept="image/jpeg,image/png,image/webp">
+                                        <small class="text-body-secondary d-block mt-1" style="font-size: 0.75rem;">Format: JPG, PNG, WEBP (Maks. 2MB)</small>
+                                    </div>
+                                </div>
+
+                                <div class="col-md-6">
+                                    <label class="form-label fw-semibold small mb-1">Nama Lengkap <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control form-control-sm" name="full_name" id="my_profile_full_name" required>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label fw-semibold small mb-1">NIK (No. KTP) <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control form-control-sm" name="nik" id="my_profile_nik" maxlength="16" pattern="[0-9]{16}" inputmode="numeric" placeholder="16 digit NIK" required>
+                                </div>
+
+                                <div class="col-md-4">
+                                    <label class="form-label fw-semibold small mb-1">Jenis Kelamin</label>
+                                    <select class="form-select form-select-sm" name="gender" id="my_profile_gender">
+                                        <option value="">-- Pilih Jenis Kelamin --</option>
+                                        <option value="L">Laki-Laki</option>
+                                        <option value="P">Perempuan</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label fw-semibold small mb-1">Tempat Lahir</label>
+                                    <input type="text" class="form-control form-control-sm" name="pob" id="my_profile_pob">
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label fw-semibold small mb-1">Tanggal Lahir</label>
+                                    <input type="date" class="form-control form-control-sm" name="dob" id="my_profile_dob">
+                                </div>
+
+                                <div class="col-md-4">
+                                    <label class="form-label fw-semibold small mb-1">Agama</label>
+                                    <select class="form-select form-select-sm" name="religion" id="my_profile_religion">
+                                        <option value="">-- Pilih Agama --</option>
+                                        <option value="Islam">Islam</option>
+                                        <option value="Kristen">Kristen</option>
+                                        <option value="Katolik">Katolik</option>
+                                        <option value="Hindu">Hindu</option>
+                                        <option value="Buddha">Buddha</option>
+                                        <option value="Konghucu">Konghucu</option>
+                                        <option value="Lainnya">Lainnya</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label fw-semibold small mb-1">Status Pernikahan</label>
+                                    <select class="form-select form-select-sm" name="marital_status" id="my_profile_marital_status">
+                                        <option value="">-- Pilih Status --</option>
+                                        <option value="Belum Menikah">Belum Menikah</option>
+                                        <option value="Menikah">Menikah</option>
+                                        <option value="Duda/Janda">Duda/Janda</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label fw-semibold small mb-1">Status Pekerjaan</label>
+                                    <select class="form-select form-select-sm" name="job_status" id="my_profile_job_status">
+                                        <option value="">-- Pilih Pekerjaan --</option>
+                                        <option value="Belum Bekerja">Belum Bekerja</option>
+                                        <option value="Bekerja">Bekerja</option>
+                                        <option value="Wiraswasta">Wiraswasta</option>
+                                        <option value="Pelajar/Mahasiswa">Pelajar/Mahasiswa</option>
+                                    </select>
+                                </div>
+
+                                <div class="col-md-12">
+                                    <label class="form-label fw-semibold small mb-1">No. HP / WhatsApp <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control form-control-sm" name="phone" id="my_profile_phone" inputmode="numeric" placeholder="Contoh: 081234567890" required>
+                                </div>
+
+                                <div class="col-md-6">
+                                    <label class="form-label fw-semibold small mb-1">Alamat KTP</label>
+                                    <textarea class="form-control form-control-sm" name="ktp_address" id="my_profile_ktp_address" rows="2"></textarea>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label fw-semibold small mb-1">Alamat Domisili</label>
+                                    <textarea class="form-control form-control-sm" name="domicile_address" id="my_profile_domicile_address" rows="2"></textarea>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer bg-body-tertiary">
+                    <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Batal</button>
+                    <button type="submit" class="btn btn-sm btn-primary px-3" id="btnSaveMyProfile">
+                        <i class="bi bi-check-circle me-1"></i> Simpan Perubahan Profil
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
 </body>
 
 </html>

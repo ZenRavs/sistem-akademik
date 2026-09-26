@@ -184,6 +184,7 @@ $currentMeta = $pageMeta[$view] ?? ['title' => 'Sistem Akademik', 'subtitle' => 
                         </li>
                         <li><a class="dropdown-item py-2" href="?view=dashboard"><i class="bi bi-grid-fill me-2 text-primary"></i>Dashboard</a></li>
                         <li><a class="dropdown-item py-2" href="?view=students"><i class="bi bi-people-fill me-2 text-info"></i>Data Mahasiswa</a></li>
+                        <li><a class="dropdown-item py-2 btn-open-edit-my-profile" href="javascript:void(0)"><i class="bi bi-person-gear me-2 text-warning"></i>Edit Profile</a></li>
                         <li><hr class="dropdown-divider my-1"></li>
                         <li><a class="dropdown-item text-danger py-2 btn-logout" href="javascript:void(0)"><i class="bi bi-box-arrow-right me-2"></i>Logout</a></li>
                     </ul>
@@ -264,7 +265,10 @@ $currentMeta = $pageMeta[$view] ?? ['title' => 'Sistem Akademik', 'subtitle' => 
                     include $adminViewsDir . '/forms/course_schedule_form.php';
                     break;
                 case 'new_user':
-                    include $adminViewsDir . '/forms/user_form.php';
+                    include $adminViewsDir . '/forms/new_users_credential.php';
+                    break;
+                case 'edit_user':
+                    include $adminViewsDir . '/forms/edit_users_credential.php';
                     break;
                 case 'edit_student':
                     include $adminViewsDir . '/forms/student_form.php';

@@ -918,13 +918,16 @@ try {
             //
             // Users Management (users_credential + personal_profiles)
             //
+            //
+            // Users Management (users_credential + personal_profiles)
+            //
             case 'getDataUsers':
                 $page = (int)($_POST['page'] ?? 1);
                 $maxRow = (int)($_POST['maxRow'] ?? 10);
                 $offset = ($page - 1) * $maxRow;
 
                 $sql = "
-                    SELECT u.id, u.username, u.role, u.status, u.last_login,
+                    SELECT u.id, u.username, u.email, u.role, u.account_status, u.last_login_at, u.last_active_at, u.session_token,
                            COALESCE(p.full_name, u.username) AS name
                     FROM users_credential u
                     LEFT JOIN personal_profiles p ON p.user_id = u.id
@@ -939,52 +942,294 @@ try {
                 $pages = ceil($totalRows / $maxRow);
 
                 $html = "";
+                $currentUserId = (int)($_SESSION['user']['id'] ?? 0);
+
                 if (count($rows) > 0) {
                     $i = ($page - 1) * $maxRow;
                     foreach ($rows as $row) {
                         $roleLower = strtolower($row['role']);
                         $badgeColor = ($roleLower === 'superadmin' ? 'danger' : ($roleLower === 'admin' ? 'warning' : 'primary'));
+                        $accStatus = $row['account_status'] ?? 'active';
+                        $statusBadge = ($accStatus === 'active') ? 'success' : (($accStatus === 'suspended') ? 'warning' : 'danger');
+
+                        $isOnline = (!empty($row['session_token']) && !empty($row['last_active_at']) && (time() - strtotime($row['last_active_at']) <= 1800));
+                        $loginBadge = $isOnline ? '<span class="badge text-bg-success">Online</span>' : '<span class="badge text-bg-secondary">Offline</span>';
+
                         $html .= '<tr class="align-middle">';
                         $html .= '<td class="text-center">' . ($i + 1) . '</td>';
                         $html .= "<td>" . htmlspecialchars($row['name']) . "</td>";
                         $html .= "<td>" . htmlspecialchars($row['username']) . "</td>";
                         $html .= "<td class='text-center'><span class='badge text-bg-$badgeColor'>" . htmlspecialchars(ucfirst($row['role'])) . "</span></td>";
-                        $html .= "<td class='text-center'><span class='badge text-bg-success'>Active</span></td>";
-                        $html .= "<td class='text-center'><span class='badge text-bg-" . ($row['status'] == 0 ? 'secondary' : 'success') . "'>" . ($row['status'] == 0 ? 'Disabled' : 'Enabled') . "</span></td>";
-                        $html .= '<td class="text-center align-middle">';
-                        if ($roleLower === 'superadmin') {
-                            $html .= '-';
-                        } elseif ($roleLower === 'student' || $roleLower === 'mahasiswa') {
-                            $html .= '<span class="badge text-bg-secondary font-weight-normal" style="font-size: 11px;">Dikelola di Data Mahasiswa</span>';
+                        $html .= "<td class='text-center'>{$loginBadge}</td>";
+                        $html .= "<td class='text-center'><span class='badge text-bg-{$statusBadge}'>" . htmlspecialchars(ucfirst($accStatus)) . "</span></td>";
+                        $html .= '<td class="text-center align-middle text-nowrap">';
+                        if ((int)$row['id'] === $currentUserId) {
+                            $html .= '<span class="fw-bold" style="font-size: 12px;">-</span>';
                         } else {
-                            $html .= '<button class="btn btn-sm fs-6 btn-outline-info me-2" id="editBtn" data-id="' . $row['id'] . '">✎</button>';
-                            $html .= '<button class="btn btn-sm fs-6 btn-outline-danger" id="deleteBtn" data-id="' . $row['id'] . '">&times;</button>';
+                            $html .= '<button class="btn btn-sm btn-outline-primary" id="viewBtn" data-id="' . $row['id'] . '" title="Lihat Detail Kredensial"><i class="bi bi-eye me-1"></i>Lihat</button>';                            
                         }
                         $html .= '</td></tr>';
                         $i++;
                     }
+                    $response['status'] = 'success';
                     $response['html'] = $html;
                     $response['pages'] = $pages;
                 } else {
                     $html .= "<tr><td colspan='7' class='text-center'>No records found.</td></tr>";
+                    $response['status'] = 'success';
                     $response['html'] = $html;
+                    $response['pages'] = 1;
+                }
+                echo json_encode($response);
+                break;
+
+            case 'searchUser':
+                $page = (int)($_POST['page'] ?? 1);
+                $maxRow = (int)($_POST['maxRow'] ?? 10);
+                $offset = ($page - 1) * $maxRow;
+                $searchCategory = $_POST['searchCategory'] ?? 'name';
+                $searchInput = trim($_POST['searchInput'] ?? '');
+
+                $whereClause = "WHERE 1=1";
+                $params = [];
+                if (!empty($searchInput)) {
+                    if ($searchCategory === 'username') {
+                        $whereClause .= " AND (LOWER(u.username) LIKE LOWER(?) OR LOWER(u.email) LIKE LOWER(?))";
+                        $params[] = "%{$searchInput}%";
+                        $params[] = "%{$searchInput}%";
+                    } else {
+                        $whereClause .= " AND (LOWER(p.full_name) LIKE LOWER(?) OR LOWER(u.username) LIKE LOWER(?))";
+                        $params[] = "%{$searchInput}%";
+                        $params[] = "%{$searchInput}%";
+                    }
+                }
+
+                $sql = "
+                    SELECT u.id, u.username, u.email, u.role, u.account_status, u.last_login_at, u.last_active_at, u.session_token,
+                           COALESCE(p.full_name, u.username) AS name
+                    FROM users_credential u
+                    LEFT JOIN personal_profiles p ON p.user_id = u.id
+                    {$whereClause}
+                    ORDER BY CASE WHEN lower(u.role) = 'superadmin' THEN 1 WHEN lower(u.role) = 'admin' THEN 2 ELSE 3 END, u.id DESC
+                    LIMIT ? OFFSET ?
+                ";
+
+                $countSql = "
+                    SELECT COUNT(*) 
+                    FROM users_credential u 
+                    LEFT JOIN personal_profiles p ON p.user_id = u.id 
+                    {$whereClause}
+                ";
+                $countStmt = $conn->prepare($countSql);
+                $countStmt->execute($params);
+                $totalRows = (int)$countStmt->fetchColumn();
+                $pages = ceil($totalRows / $maxRow);
+
+                $params[] = $maxRow;
+                $params[] = $offset;
+
+                $stmt = $conn->prepare($sql);
+                $stmt->execute($params);
+                $rows = $stmt->fetchAll();
+
+                $html = "";
+                $currentUserId = (int)($_SESSION['user']['id'] ?? 0);
+
+                if (count($rows) > 0) {
+                    $i = ($page - 1) * $maxRow;
+                    foreach ($rows as $row) {
+                        $roleLower = strtolower($row['role']);
+                        $badgeColor = ($roleLower === 'superadmin' ? 'danger' : ($roleLower === 'admin' ? 'warning' : 'primary'));
+                        $accStatus = $row['account_status'] ?? 'active';
+                        $statusBadge = ($accStatus === 'active') ? 'success' : (($accStatus === 'suspended') ? 'warning' : 'danger');
+
+                        $isOnline = (!empty($row['session_token']) && !empty($row['last_active_at']) && (time() - strtotime($row['last_active_at']) <= 1800));
+                        $loginBadge = $isOnline ? '<span class="badge text-bg-success">Online</span>' : '<span class="badge text-bg-secondary">Offline</span>';
+
+                        $html .= '<tr class="align-middle">';
+                        $html .= '<td class="text-center">' . ($i + 1) . '</td>';
+                        $html .= '<td>' . htmlspecialchars($row['name']) . '</td>';
+                        $html .= '<td>' . htmlspecialchars($row['username']) . '</td>';
+                        $html .= '<td class="text-center"><span class="badge text-bg-' . $badgeColor . '">' . htmlspecialchars(ucfirst($row['role'])) . '</span></td>';
+                        $html .= '<td class="text-center">' . $loginBadge . '</td>';
+                        $html .= '<td class="text-center"><span class="badge text-bg-' . $statusBadge . '">' . htmlspecialchars(ucfirst($accStatus)) . '</span></td>';
+                        $html .= '<td class="text-center align-middle text-nowrap">';
+                        if ((int)$row['id'] === $currentUserId) {
+                            $html .= '<span class="badge text-bg-info font-weight-normal" style="font-size: 11px;">Akun Saya</span>';
+                        } else {
+                            $html .= '<button class="btn btn-sm btn-outline-primary me-1" id="viewBtn" data-id="' . $row['id'] . '" title="Lihat Detail Kredensial"><i class="bi bi-eye me-1"></i>Lihat</button>';
+                            if ($roleLower === 'admin') {
+                                $html .= '<button class="btn btn-sm fs-6 btn-outline-info me-1" id="editBtn" data-id="' . $row['id'] . '" title="Edit User Admin">✎</button>';
+                                $html .= '<button class="btn btn-sm fs-6 btn-outline-danger" id="deleteBtn" data-id="' . $row['id'] . '" title="Hapus User Admin">&times;</button>';
+                            }
+                        }
+                        $html .= '</td></tr>';
+                        $i++;
+                    }
+                    $response['status'] = 'success';
+                    $response['html'] = $html;
+                    $response['pages'] = $pages;
+                } else {
+                    $response['status'] = 'success';
+                    $response['html'] = "<tr><td colspan='7' class='text-center'>No records found.</td></tr>";
+                    $response['pages'] = 1;
+                }
+                echo json_encode($response);
+                break;
+
+            case 'insertNewUser':
+                try {
+                    $operatorRole = strtolower($_SESSION['user']['role'] ?? '');
+                    if ($operatorRole !== 'superadmin') {
+                        throw new Exception("Akses ditolak: Hanya Superadmin yang diizinkan membuat akun baru!");
+                    }
+
+                    // Extract Kredensial (users_credential)
+                    $fullName      = trim($_POST['full_name'] ?? '');
+                    $username      = trim($_POST['username'] ?? '');
+                    $email         = trim($_POST['email'] ?? '');
+                    $password      = trim($_POST['password'] ?? '');
+                    $confirmPass   = trim($_POST['password-confirm'] ?? ($_POST['confirm_password'] ?? ''));
+                    $role          = strtolower(trim($_POST['role'] ?? ''));
+                    $accountStatus = trim($_POST['account_status'] ?? 'active');
+
+                    // Extract Personal Profile (personal_profiles)
+                    $nik             = trim($_POST['nik'] ?? '');
+                    $gender          = trim($_POST['gender'] ?? '');
+                    $pob             = trim($_POST['pob'] ?? '');
+                    $dob             = trim($_POST['dob'] ?? '');
+                    $religion        = trim($_POST['religion'] ?? '');
+                    $phone           = trim($_POST['phone'] ?? '');
+                    $ktpAddress      = trim($_POST['ktp_address'] ?? '');
+                    $domicileAddress = trim($_POST['domicile_address'] ?? '');
+
+                    if ($accountStatus === '1') {
+                        $accountStatus = 'active';
+                    } elseif ($accountStatus === '0') {
+                        $accountStatus = 'suspended';
+                    }
+
+                    if (empty($username) || empty($email) || empty($password) || empty($role) || empty($fullName)) {
+                        throw new Exception("Harap isi semua kolom wajib (Nama Lengkap, Username, Email, Password, dan Role)!");
+                    }
+
+                    // Pembatasan Role Manual Creation: Hanya 'admin' dan 'superadmin'
+                    if (!in_array($role, ['admin', 'superadmin'])) {
+                        throw new Exception("Pembuatan akun manual hanya diizinkan untuk role Admin atau Superadmin! Akun Mahasiswa dibuat via PMB Online dan akun Dosen dibuat via Data Dosen.");
+                    }
+
+                    if ($password !== $confirmPass) {
+                        throw new Exception("Konfirmasi kata sandi tidak cocok!");
+                    }
+
+                    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                        throw new Exception("Format email tidak valid!");
+                    }
+
+                    // Validasi duplikasi username
+                    $checkUser = $conn->prepare("SELECT id FROM users_credential WHERE username = ?");
+                    $checkUser->execute([$username]);
+                    if ($checkUser->fetch()) {
+                        throw new Exception("Username '{$username}' sudah digunakan!");
+                    }
+
+                    // Validasi duplikasi email
+                    $checkEmail = $conn->prepare("SELECT id FROM users_credential WHERE email = ?");
+                    $checkEmail->execute([$email]);
+                    if ($checkEmail->fetch()) {
+                        throw new Exception("Email '{$email}' sudah terdaftar!");
+                    }
+
+                    // Validasi NIK jika diisi
+                    if (!empty($nik)) {
+                        if (!preg_match('/^[0-9]{16}$/', $nik)) {
+                            throw new Exception("Format NIK harus berupa 16 digit angka!");
+                        }
+                        $checkNik = $conn->prepare("SELECT id FROM personal_profiles WHERE nik = ?");
+                        $checkNik->execute([$nik]);
+                        if ($checkNik->fetch()) {
+                            throw new Exception("NIK '{$nik}' sudah terdaftar!");
+                        }
+                    }
+
+                    $hashedPassword = password_hash($password, PASSWORD_BCRYPT);
+
+                    $conn->beginTransaction();
+
+                    // 1. Insert ke users_credential
+                    $stmt = $conn->prepare("
+                        INSERT INTO users_credential (username, email, password, role, account_status)
+                        VALUES (?, ?, ?, ?, ?)
+                        RETURNING id
+                    ");
+                    $stmt->execute([$username, $email, $hashedPassword, $role, $accountStatus]);
+                    $userId = $stmt->fetchColumn();
+
+                    // 2. Insert/Upsert ke personal_profiles
+                    if ($userId) {
+                        $stmtProf = $conn->prepare("
+                            INSERT INTO personal_profiles (user_id, nik, full_name, gender, pob, dob, religion, phone, ktp_address, domicile_address)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            ON CONFLICT (user_id) DO UPDATE SET
+                                nik = EXCLUDED.nik,
+                                full_name = EXCLUDED.full_name,
+                                gender = EXCLUDED.gender,
+                                pob = EXCLUDED.pob,
+                                dob = EXCLUDED.dob,
+                                religion = EXCLUDED.religion,
+                                phone = EXCLUDED.phone,
+                                ktp_address = EXCLUDED.ktp_address,
+                                domicile_address = EXCLUDED.domicile_address
+                        ");
+                        $stmtProf->execute([
+                            $userId,
+                            !empty($nik) ? $nik : null,
+                            $fullName,
+                            !empty($gender) ? $gender : null,
+                            !empty($pob) ? $pob : null,
+                            !empty($dob) ? $dob : null,
+                            !empty($religion) ? $religion : null,
+                            !empty($phone) ? $phone : null,
+                            !empty($ktpAddress) ? $ktpAddress : null,
+                            !empty($domicileAddress) ? $domicileAddress : null
+                        ]);
+                    }
+
+                    $conn->commit();
+
+                    $response['status'] = 'success';
+                    $response['message'] = "Pengguna '" . ucfirst($role) . "' ({$username}) dan profil personal berhasil ditambahkan.";
+                } catch (Exception $e) {
+                    if ($conn->inTransaction()) {
+                        $conn->rollBack();
+                    }
+                    $response['status'] = 'error';
+                    $response['message'] = "Gagal membuat user: " . $e->getMessage();
                 }
                 echo json_encode($response);
                 break;
 
             case 'deleteUser':
                 try {
+                    $operatorRole = strtolower($_SESSION['user']['role'] ?? '');
+                    if ($operatorRole !== 'superadmin') {
+                        throw new Exception("Akses ditolak: Hanya Superadmin yang diizinkan menghapus pengguna!");
+                    }
+
                     $id = (int)($_POST['id'] ?? 0);
                     $stmt = $conn->prepare("SELECT username, role FROM users_credential WHERE id = ?");
                     $stmt->execute([$id]);
                     $row = $stmt->fetch();
+
                     if ($row) {
                         $roleLower = strtolower($row['role']);
                         if ($roleLower === 'superadmin') {
-                            throw new Exception("Akun Superadmin tidak dapat dihapus!");
+                            throw new Exception("Akun Superadmin tidak dapat dihapus demi keamanan sistem!");
                         }
-                        if ($roleLower === 'student' || $roleLower === 'mahasiswa') {
-                            throw new Exception("Akun Mahasiswa tidak dapat dihapus melalui Data Users. Harap kelola melalui menu Data Mahasiswa!");
+
+                        $blockedRoles = ['student', 'mahasiswa', 'lecturer', 'dosen', 'staff', 'pegawai', 'applicant', 'pendaftar'];
+                        if (in_array($roleLower, $blockedRoles)) {
+                            throw new Exception("Akun dengan role '" . ucfirst($row['role']) . "' tidak dapat dihapus dari Kelola User! Harap kelola status keaktifan dari menu master terkait (Data Mahasiswa / Data Dosen).");
                         }
 
                         $deleteStmt = $conn->prepare("DELETE FROM users_credential WHERE id = ?");
@@ -1002,6 +1247,505 @@ try {
                 } catch (Exception $e) {
                     $response['status'] = 'error';
                     $response['message'] = "Terjadi kesalahan: " . $e->getMessage();
+                }
+                echo json_encode($response);
+                break;
+
+            case 'getUserDetail':
+                try {
+                    $operatorRole = strtolower($_SESSION['user']['role'] ?? '');
+                    if ($operatorRole !== 'superadmin') {
+                        throw new Exception("Akses ditolak: Hanya Superadmin yang diizinkan melihat detail edit user!");
+                    }
+
+                    $id = (int)($_POST['id'] ?? ($_GET['id'] ?? 0));
+                    $stmt = $conn->prepare("
+                        SELECT u.id, u.username, u.email, u.role, u.account_status,
+                               p.full_name, p.nik, p.gender, p.pob, p.dob, p.religion, p.phone, p.ktp_address, p.domicile_address
+                        FROM users_credential u
+                        LEFT JOIN personal_profiles p ON p.user_id = u.id
+                        WHERE u.id = ?
+                    ");
+                    $stmt->execute([$id]);
+                    $user = $stmt->fetch();
+
+                    if (!$user) {
+                        throw new Exception("User tidak ditemukan.");
+                    }
+
+                    $roleLower = strtolower($user['role']);
+                    if ($roleLower !== 'admin') {
+                        throw new Exception("Akun dengan role '" . ucfirst($user['role']) . "' tidak dapat diubah melalui menu Kelola User! Hanya user dengan role Admin (TU) yang diizinkan.");
+                    }
+
+                    $response['status'] = 'success';
+                    $response['data'] = $user;
+                } catch (Exception $e) {
+                    $response['status'] = 'error';
+                    $response['message'] = $e->getMessage();
+                }
+                echo json_encode($response);
+                break;
+
+            case 'getUserCredentialDetail':
+                try {
+                    $operatorRole = strtolower($_SESSION['user']['role'] ?? '');
+                    if ($operatorRole !== 'superadmin') {
+                        throw new Exception("Akses ditolak: Hanya Superadmin yang diizinkan melihat detail kredensial!");
+                    }
+
+                    $id = (int)($_POST['id'] ?? ($_GET['id'] ?? 0));
+                    $stmt = $conn->prepare("
+                        SELECT u.id, u.username, u.email, u.password, u.role, u.account_status,
+                               u.last_login_at, u.last_active_at, u.session_token, u.failed_attempts, u.locked_until, u.created_at,
+                               p.full_name, p.nik, p.gender, p.pob, p.dob, p.religion, p.phone, p.emerg_phone, p.ktp_address, p.domicile_address, p.photo
+                        FROM users_credential u
+                        LEFT JOIN personal_profiles p ON p.user_id = u.id
+                        WHERE u.id = ?
+                    ");
+                    $stmt->execute([$id]);
+                    $user = $stmt->fetch();
+
+                    if (!$user) {
+                        throw new Exception("User tidak ditemukan.");
+                    }
+
+                    $response['status'] = 'success';
+                    $response['data'] = $user;
+                } catch (Exception $e) {
+                    $response['status'] = 'error';
+                    $response['message'] = $e->getMessage();
+                }
+                echo json_encode($response);
+                break;
+
+            case 'getMyProfileDetail':
+                try {
+                    $userId = (int)($_SESSION['user']['id'] ?? ($_SESSION['applicant']['user_id'] ?? 0));
+                    if ($userId <= 0) {
+                        throw new Exception("Sesi Anda tidak valid. Silakan login kembali.");
+                    }
+
+                    $stmt = $conn->prepare("
+                        SELECT u.id, u.username, u.email, u.role, u.account_status,
+                               p.full_name, p.nik, p.gender, p.pob, p.dob, p.religion, p.marital_status, p.job_status, p.phone, p.ktp_address, p.domicile_address, p.photo
+                        FROM users_credential u
+                        LEFT JOIN personal_profiles p ON p.user_id = u.id
+                        WHERE u.id = ?
+                    ");
+                    $stmt->execute([$userId]);
+                    $profile = $stmt->fetch();
+
+                    if (!$profile) {
+                        throw new Exception("Data pengguna tidak ditemukan.");
+                    }
+
+                    $response['status'] = 'success';
+                    $response['data'] = $profile;
+                } catch (Exception $e) {
+                    $response['status'] = 'error';
+                    $response['message'] = $e->getMessage();
+                }
+                echo json_encode($response);
+                break;
+
+            case 'updateMyProfile':
+                try {
+                    $userId = (int)($_SESSION['user']['id'] ?? ($_SESSION['applicant']['user_id'] ?? 0));
+                    if ($userId <= 0) {
+                        throw new Exception("Sesi Anda tidak valid. Silakan login kembali.");
+                    }
+
+                    $email           = trim($_POST['email'] ?? '');
+                    $fullName        = trim($_POST['full_name'] ?? '');
+                    $nik             = trim($_POST['nik'] ?? '');
+                    $gender          = trim($_POST['gender'] ?? '');
+                    $pob             = trim($_POST['pob'] ?? '');
+                    $dob             = !empty($_POST['dob']) ? trim($_POST['dob']) : null;
+                    $religion        = trim($_POST['religion'] ?? '');
+                    $maritalStatus   = trim($_POST['marital_status'] ?? '');
+                    $jobStatus       = trim($_POST['job_status'] ?? '');
+                    $phone           = trim($_POST['phone'] ?? '');
+                    $ktpAddress      = trim($_POST['ktp_address'] ?? '');
+                    $domicileAddress = trim($_POST['domicile_address'] ?? '');
+
+                    $currentPassword = trim($_POST['current_password'] ?? '');
+                    $newPassword     = trim($_POST['new_password'] ?? '');
+                    $confirmPassword = trim($_POST['confirm_password'] ?? '');
+
+                    if (empty($email)) {
+                        throw new Exception("Email tidak boleh kosong.");
+                    }
+                    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                        throw new Exception("Format email tidak valid.");
+                    }
+                    if (empty($fullName)) {
+                        throw new Exception("Nama Lengkap tidak boleh kosong.");
+                    }
+                    if (!empty($nik) && !preg_match('/^[0-9]{16}$/', $nik)) {
+                        throw new Exception("NIK (No. KTP) harus berupa 16 digit angka.");
+                    }
+
+                    // Cek duplikasi email
+                    $checkEmail = $conn->prepare("SELECT id FROM users_credential WHERE email = ? AND id != ?");
+                    $checkEmail->execute([$email, $userId]);
+                    if ($checkEmail->fetch()) {
+                        throw new Exception("Email '{$email}' sudah digunakan oleh pengguna lain.");
+                    }
+
+                    // Ambil password lama user untuk verifikasi jika hendak ganti password
+                    $getUserStmt = $conn->prepare("SELECT password, email FROM users_credential WHERE id = ?");
+                    $getUserStmt->execute([$userId]);
+                    $userRow = $getUserStmt->fetch();
+
+                    $passwordUpdated = false;
+                    $passwordHash = null;
+                    if (!empty($newPassword)) {
+                        if (empty($currentPassword)) {
+                            throw new Exception("Masukkan password saat ini (lama) untuk mengonfirmasi perubahan password.");
+                        }
+                        if (!password_verify($currentPassword, $userRow['password'])) {
+                            throw new Exception("Password saat ini (lama) salah.");
+                        }
+                        if (strlen($newPassword) < 6) {
+                            throw new Exception("Password baru minimal 6 karakter.");
+                        }
+                        if ($newPassword !== $confirmPassword) {
+                            throw new Exception("Konfirmasi password baru tidak cocok.");
+                        }
+                        $passwordHash = password_hash($newPassword, PASSWORD_DEFAULT);
+                        $passwordUpdated = true;
+                    }
+
+                    // Handling Upload Foto Profil
+                    $getPhotoStmt = $conn->prepare("SELECT photo FROM personal_profiles WHERE user_id = ?");
+                    $getPhotoStmt->execute([$userId]);
+                    $existingProfile = $getPhotoStmt->fetch();
+                    $currentPhoto = $existingProfile['photo'] ?? null;
+                    $newPhotoFilename = $currentPhoto;
+
+                    if (!empty($_FILES['photo']['name'])) {
+                        $targetDir = defined('UPLOAD_PATH') ? UPLOAD_PATH . '/' : __DIR__ . '/../public/uploads/user_photos/';
+                        if (!is_dir($targetDir)) {
+                            mkdir($targetDir, 0777, true);
+                        }
+                        $fileType = strtolower(pathinfo($_FILES['photo']['name'], PATHINFO_EXTENSION));
+                        $allowedTypes = ['jpg', 'jpeg', 'png', 'webp'];
+                        if (!in_array($fileType, $allowedTypes)) {
+                            throw new Exception("Format foto profil hanya diperbolehkan JPG, PNG, atau WEBP.");
+                        }
+
+                        // Hapus foto lama jika ada (cek folder user_photos dan legacy userpict)
+                        if ($currentPhoto) {
+                            $targetFilePath = $targetDir . $currentPhoto;
+                            if (file_exists($targetFilePath) && is_file($targetFilePath)) {
+                                @unlink($targetFilePath);
+                            }
+                            $legacyFilePath = __DIR__ . '/../public/uploads/userpict/' . $currentPhoto;
+                            if (file_exists($legacyFilePath) && is_file($legacyFilePath)) {
+                                @unlink($legacyFilePath);
+                            }
+                        }
+
+                        $cleanName = preg_replace('/[^a-zA-Z0-9]/', '', substr($fullName, 0, 8));
+                        $newPhotoFilename = strtolower($cleanName) . '_' . time() . '_' . randomizer(6) . '.' . $fileType;
+                        if (!move_uploaded_file($_FILES['photo']['tmp_name'], $targetDir . $newPhotoFilename)) {
+                            throw new Exception("Gagal mengunggah foto profil ke server.");
+                        }
+                    }
+
+                    $conn->beginTransaction();
+
+                    // 1. Update users_credential
+                    if ($passwordUpdated) {
+                        $updateUser = $conn->prepare("UPDATE users_credential SET email = ?, password = ? WHERE id = ?");
+                        $updateUser->execute([$email, $passwordHash, $userId]);
+                    } else {
+                        $updateUser = $conn->prepare("UPDATE users_credential SET email = ? WHERE id = ?");
+                        $updateUser->execute([$email, $userId]);
+                    }
+
+                    // 2. Upsert personal_profiles
+                    if ($existingProfile !== false) {
+                        $updateProf = $conn->prepare("
+                            UPDATE personal_profiles SET
+                                full_name = ?, nik = ?, gender = ?, pob = ?, dob = ?, religion = ?,
+                                marital_status = ?, job_status = ?, phone = ?, ktp_address = ?,
+                                domicile_address = ?, photo = ?
+                            WHERE user_id = ?
+                        ");
+                        $updateProf->execute([
+                            $fullName, $nik, $gender, $pob, $dob, $religion,
+                            $maritalStatus, $jobStatus, $phone, $ktpAddress,
+                            $domicileAddress, $newPhotoFilename, $userId
+                        ]);
+                    } else {
+                        $insertProf = $conn->prepare("
+                            INSERT INTO personal_profiles (
+                                user_id, full_name, nik, gender, pob, dob, religion,
+                                marital_status, job_status, phone, ktp_address, domicile_address, photo
+                            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        ");
+                        $insertProf->execute([
+                            $userId, $fullName, $nik, $gender, $pob, $dob, $religion,
+                            $maritalStatus, $jobStatus, $phone, $ktpAddress, $domicileAddress, $newPhotoFilename
+                        ]);
+                    }
+
+                    $conn->commit();
+
+                    // Update Sesi PHP agar Header/Avatar langsung terbarui
+                    if (isset($_SESSION['user'])) {
+                        $_SESSION['user']['name'] = $fullName;
+                        $_SESSION['user']['pict'] = $newPhotoFilename;
+                    }
+                    if (isset($_SESSION['applicant'])) {
+                        $_SESSION['applicant']['full_name'] = $fullName;
+                        $_SESSION['applicant']['photo'] = $newPhotoFilename;
+                    }
+
+                    $response['status'] = 'success';
+                    $response['message'] = 'Profil berhasil diperbarui!';
+                    $response['photo'] = $newPhotoFilename;
+                    $response['full_name'] = $fullName;
+                } catch (Exception $e) {
+                    if ($conn->inTransaction()) {
+                        $conn->rollBack();
+                    }
+                    $response['status'] = 'error';
+                    $response['message'] = $e->getMessage();
+                }
+                echo json_encode($response);
+                break;
+
+            case 'updateUserStatusAndState':
+                try {
+                    $operatorRole = strtolower($_SESSION['user']['role'] ?? '');
+                    $currentUserId = (int)($_SESSION['user']['id'] ?? 0);
+
+                    if ($operatorRole !== 'superadmin') {
+                        throw new Exception("Akses ditolak: Hanya Superadmin yang diizinkan memperbarui status pengguna!");
+                    }
+
+                    $targetId         = (int)($_POST['id'] ?? 0);
+                    $newAccountStatus = trim($_POST['account_status'] ?? 'active');
+                    $newPassword      = trim($_POST['new_password'] ?? '');
+
+                    if ($targetId <= 0) {
+                        throw new Exception("ID User tidak valid.");
+                    }
+
+                    if ($targetId === $currentUserId) {
+                        throw new Exception("Anda tidak dapat mengubah status akun Anda sendiri!");
+                    }
+
+                    $stmtCheck = $conn->prepare("SELECT username, role FROM users_credential WHERE id = ?");
+                    $stmtCheck->execute([$targetId]);
+                    $targetUser = $stmtCheck->fetch();
+
+                    if (!$targetUser) {
+                        throw new Exception("User tidak ditemukan.");
+                    }
+
+                    $allowedStatuses = ['active', 'suspended', 'banned', 'pending_activation', 'archived'];
+                    if (!in_array($newAccountStatus, $allowedStatuses)) {
+                        $newAccountStatus = 'active';
+                    }
+
+                    $conn->beginTransaction();
+
+                    // 1. Update status akun
+                    $stmtStatus = $conn->prepare("UPDATE users_credential SET account_status = ? WHERE id = ?");
+                    $stmtStatus->execute([$newAccountStatus, $targetId]);
+
+                    // 2. Update password jika diisi (Placeholder reset / lupa password)
+                    if (!empty($newPassword)) {
+                        if (strlen($newPassword) < 6) {
+                            throw new Exception("Kata sandi baru minimal 6 karakter!");
+                        }
+                        $hashedPassword = password_hash($newPassword, PASSWORD_BCRYPT);
+                        $stmtPass = $conn->prepare("UPDATE users_credential SET password = ? WHERE id = ?");
+                        $stmtPass->execute([$hashedPassword, $targetId]);
+                    }
+
+                    $conn->commit();
+
+                    $msg = "Status akun @{$targetUser['username']} berhasil diubah ke '" . ucfirst($newAccountStatus) . "'";
+                    if (!empty($newPassword)) {
+                        $msg .= " serta kata sandi telah diperbarui.";
+                    } else {
+                        $msg .= ".";
+                    }
+
+                    $response['status'] = 'success';
+                    $response['message'] = $msg;
+                } catch (Exception $e) {
+                    if ($conn->inTransaction()) {
+                        $conn->rollBack();
+                    }
+                    $response['status'] = 'error';
+                    $response['message'] = $e->getMessage();
+                }
+                echo json_encode($response);
+                break;
+
+            case 'terminateUserSession':
+                try {
+                    $operatorRole = strtolower($_SESSION['user']['role'] ?? '');
+                    $currentUserId = (int)($_SESSION['user']['id'] ?? 0);
+
+                    if ($operatorRole !== 'superadmin') {
+                        throw new Exception("Akses ditolak: Hanya Superadmin yang diizinkan memutus sesi pengguna!");
+                    }
+
+                    $targetId = (int)($_POST['id'] ?? 0);
+
+                    if ($targetId <= 0) {
+                        throw new Exception("ID User tidak valid.");
+                    }
+
+                    if ($targetId === $currentUserId) {
+                        throw new Exception("Anda tidak dapat memutus sesi akun Anda sendiri!");
+                    }
+
+                    $stmtCheck = $conn->prepare("SELECT username, session_token FROM users_credential WHERE id = ?");
+                    $stmtCheck->execute([$targetId]);
+                    $targetUser = $stmtCheck->fetch();
+
+                    if (!$targetUser) {
+                        throw new Exception("User tidak ditemukan.");
+                    }
+
+                    if (empty($targetUser['session_token'])) {
+                        throw new Exception("Pengguna @{$targetUser['username']} saat ini sudah Offline (tidak memiliki sesi aktif).");
+                    }
+
+                    $stmtState = $conn->prepare("UPDATE users_credential SET session_token = NULL, last_active_at = NULL WHERE id = ?");
+                    $stmtState->execute([$targetId]);
+
+                    $response['status'] = 'success';
+                    $response['message'] = "Sesi aktif pengguna @{$targetUser['username']} berhasil diputus secara paksa (Force Logout).";
+                } catch (Exception $e) {
+                    $response['status'] = 'error';
+                    $response['message'] = $e->getMessage();
+                }
+                echo json_encode($response);
+                break;
+
+            case 'updateUser':
+                try {
+                    $operatorRole = strtolower($_SESSION['user']['role'] ?? '');
+                    if ($operatorRole !== 'superadmin') {
+                        throw new Exception("Akses ditolak: Hanya Superadmin yang diizinkan memperbarui user!");
+                    }
+
+                    $id            = (int)($_POST['id'] ?? 0);
+                    $email         = trim($_POST['email'] ?? '');
+                    $accountStatus = trim($_POST['account_status'] ?? 'active');
+                    $password      = trim($_POST['password'] ?? '');
+
+                    // Personal Profile fields
+                    $fullName        = trim($_POST['full_name'] ?? '');
+                    $nik             = trim($_POST['nik'] ?? '');
+                    $gender          = trim($_POST['gender'] ?? '');
+                    $pob             = trim($_POST['pob'] ?? '');
+                    $dob             = trim($_POST['dob'] ?? '');
+                    $religion        = trim($_POST['religion'] ?? '');
+                    $phone           = trim($_POST['phone'] ?? '');
+                    $ktpAddress      = trim($_POST['ktp_address'] ?? '');
+                    $domicileAddress = trim($_POST['domicile_address'] ?? '');
+
+                    if ($id <= 0) {
+                        throw new Exception("ID User tidak valid!");
+                    }
+
+                    if (empty($email) || empty($fullName)) {
+                        throw new Exception("Harap lengkapi kolom Email Utama dan Nama Lengkap!");
+                    }
+
+                    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                        throw new Exception("Format email tidak valid!");
+                    }
+
+                    $stmtCheck = $conn->prepare("SELECT username, email, role FROM users_credential WHERE id = ?");
+                    $stmtCheck->execute([$id]);
+                    $existingUser = $stmtCheck->fetch();
+
+                    if (!$existingUser) {
+                        throw new Exception("User tidak ditemukan.");
+                    }
+
+                    if (strtolower($existingUser['role']) !== 'admin') {
+                        throw new Exception("Hanya user ber-role Admin (TU) yang diizinkan untuk diubah melalui Kelola User!");
+                    }
+
+                    if (strtolower($email) !== strtolower($existingUser['email'])) {
+                        $checkEmail = $conn->prepare("SELECT id FROM users_credential WHERE email = ? AND id != ?");
+                        $checkEmail->execute([$email, $id]);
+                        if ($checkEmail->fetch()) {
+                            throw new Exception("Email '{$email}' sudah digunakan oleh akun lain!");
+                        }
+                    }
+
+                    if (!empty($nik)) {
+                        if (!preg_match('/^[0-9]{16}$/', $nik)) {
+                            throw new Exception("Format NIK harus berupa 16 digit angka!");
+                        }
+                        $checkNik = $conn->prepare("SELECT id FROM personal_profiles WHERE nik = ? AND user_id != ?");
+                        $checkNik->execute([$nik, $id]);
+                        if ($checkNik->fetch()) {
+                            throw new Exception("NIK '{$nik}' sudah terdaftar pada akun lain!");
+                        }
+                    }
+
+                    $conn->beginTransaction();
+
+                    if (!empty($password)) {
+                        $hashedPassword = password_hash($password, PASSWORD_BCRYPT);
+                        $stmtUpUser = $conn->prepare("UPDATE users_credential SET email = ?, account_status = ?, password = ? WHERE id = ?");
+                        $stmtUpUser->execute([$email, $accountStatus, $hashedPassword, $id]);
+                    } else {
+                        $stmtUpUser = $conn->prepare("UPDATE users_credential SET email = ?, account_status = ? WHERE id = ?");
+                        $stmtUpUser->execute([$email, $accountStatus, $id]);
+                    }
+
+                    $stmtUpProf = $conn->prepare("
+                        INSERT INTO personal_profiles (user_id, nik, full_name, gender, pob, dob, religion, phone, ktp_address, domicile_address)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        ON CONFLICT (user_id) DO UPDATE SET
+                            nik = EXCLUDED.nik,
+                            full_name = EXCLUDED.full_name,
+                            gender = EXCLUDED.gender,
+                            pob = EXCLUDED.pob,
+                            dob = EXCLUDED.dob,
+                            religion = EXCLUDED.religion,
+                            phone = EXCLUDED.phone,
+                            ktp_address = EXCLUDED.ktp_address,
+                            domicile_address = EXCLUDED.domicile_address
+                    ");
+                    $stmtUpProf->execute([
+                        $id,
+                        !empty($nik) ? $nik : null,
+                        $fullName,
+                        !empty($gender) ? $gender : null,
+                        !empty($pob) ? $pob : null,
+                        !empty($dob) ? $dob : null,
+                        !empty($religion) ? $religion : null,
+                        !empty($phone) ? $phone : null,
+                        !empty($ktpAddress) ? $ktpAddress : null,
+                        !empty($domicileAddress) ? $domicileAddress : null
+                    ]);
+
+                    $conn->commit();
+
+                    $response['status'] = 'success';
+                    $response['message'] = "Data user Admin '{$existingUser['username']}' berhasil diperbarui.";
+                } catch (Exception $e) {
+                    if ($conn->inTransaction()) {
+                        $conn->rollBack();
+                    }
+                    $response['status'] = 'error';
+                    $response['message'] = "Gagal memperbarui user: " . $e->getMessage();
                 }
                 echo json_encode($response);
                 break;
@@ -1404,28 +2148,75 @@ try {
                         throw new Exception("Data diri Anda telah dikunci karena pendaftaran Anda sedang dalam status " . $pmbStatus . ".");
                     }
 
-                    $fullName = trim($_POST['full_name'] ?? '');
-                    $nik = trim($_POST['nik'] ?? '');
-                    $gender = trim($_POST['gender'] ?? '');
-                    $pob = trim($_POST['pob'] ?? '');
-                    $dob = !empty($_POST['dob']) ? trim($_POST['dob']) : null;
-                    $religion = trim($_POST['religion'] ?? '');
-                    $nisn = trim($_POST['nisn'] ?? '');
-                    $motherName = trim($_POST['mother_name'] ?? '');
-                    $fatherName = trim($_POST['father_name'] ?? '');
-                    $fatherPhone = trim($_POST['father_phone'] ?? $_POST['parent_phone'] ?? '');
-                    $ktpAddress = trim($_POST['ktp_address'] ?? '');
-                    $maritalStatus = trim($_POST['marital_status'] ?? '');
-                    $jobStatus = trim($_POST['job_status'] ?? '');
-                    $phone = trim($_POST['phone'] ?? '');
-                    $address = trim($_POST['address'] ?? '');
-                    $schoolOrigin = trim($_POST['school_origin'] ?? '');
-                    $schoolMajor = trim($_POST['school_major'] ?? $_POST['major'] ?? '');
-                    $schoolAddress = trim($_POST['school_address'] ?? '');
+                    $fullName = trim(strip_tags($_POST['full_name'] ?? ''));
+                    $nik = trim(strip_tags($_POST['nik'] ?? ''));
+                    $gender = trim(strip_tags($_POST['gender'] ?? ''));
+                    $pob = trim(strip_tags($_POST['pob'] ?? ''));
+                    $dob = !empty($_POST['dob']) ? trim(strip_tags($_POST['dob'])) : null;
+                    $religion = trim(strip_tags($_POST['religion'] ?? ''));
+                    $nisn = trim(strip_tags($_POST['nisn'] ?? ''));
+                    $motherName = trim(strip_tags($_POST['mother_name'] ?? ''));
+                    $fatherName = trim(strip_tags($_POST['father_name'] ?? ''));
+                    $fatherPhone = trim(strip_tags($_POST['father_phone'] ?? $_POST['parent_phone'] ?? ''));
+                    $ktpAddress = trim(strip_tags($_POST['ktp_address'] ?? ''));
+                    $maritalStatus = trim(strip_tags($_POST['marital_status'] ?? ''));
+                    $jobStatus = trim(strip_tags($_POST['job_status'] ?? ''));
+                    $phone = trim(strip_tags($_POST['phone'] ?? ''));
+                    $address = trim(strip_tags($_POST['address'] ?? ''));
+                    $schoolOrigin = trim(strip_tags($_POST['school_origin'] ?? ''));
+                    $schoolMajor = trim(strip_tags($_POST['school_major'] ?? $_POST['major'] ?? ''));
+                    $schoolAddress = trim(strip_tags($_POST['school_address'] ?? ''));
                     $finalScore = !empty($_POST['final_score']) ? (float)$_POST['final_score'] : null;
 
-                    // Function for secure file upload
-                    $handleUpload = function($fileInputName, $prefix, $userId, $targetDir, $oldFile = null, $allowedMime = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf']) {
+                    // 1. Enforce Mandatory Fields Validation
+                    $missingFields = [];
+                    if (empty($fullName)) $missingFields[] = "Nama Lengkap";
+                    if (empty($nik)) $missingFields[] = "NIK (No. KTP 16-Digit)";
+                    if (empty($nisn)) $missingFields[] = "NISN (10-Digit)";
+                    if (empty($phone)) $missingFields[] = "No. HP / WhatsApp";
+                    if (empty($gender)) $missingFields[] = "Jenis Kelamin";
+                    if (empty($religion)) $missingFields[] = "Agama";
+                    if (empty($pob)) $missingFields[] = "Tempat Lahir";
+                    if (empty($dob)) $missingFields[] = "Tanggal Lahir";
+                    if (empty($maritalStatus)) $missingFields[] = "Status Pernikahan";
+                    if (empty($jobStatus)) $missingFields[] = "Status Pekerjaan";
+                    if (empty($motherName)) $missingFields[] = "Nama Ibu Kandung";
+                    if (empty($fatherName)) $missingFields[] = "Nama Ayah";
+                    if (empty($fatherPhone)) $missingFields[] = "No. HP / WhatsApp Orang Tua";
+                    if (empty($schoolOrigin)) $missingFields[] = "Asal Sekolah";
+                    if (empty($schoolMajor)) $missingFields[] = "Jurusan Sekolah Asal";
+                    if ($finalScore === null) $missingFields[] = "Nilai Akhir Rata-rata";
+                    if (empty($schoolAddress)) $missingFields[] = "Alamat Sekolah Asal";
+                    if (empty($ktpAddress)) $missingFields[] = "Alamat Sesuai KTP";
+                    if (empty($address)) $missingFields[] = "Alamat Domisili";
+
+                    if (!empty($missingFields)) {
+                        throw new Exception("Harap isi seluruh kolom wajib berikut: " . implode(', ', $missingFields) . ".");
+                    }
+
+                    // 2. Strict Format Validations (Regex)
+                    if (!preg_match('/^\d{16}$/', $nik)) {
+                        throw new Exception("NIK harus berjumlah tepat 16 digit angka!");
+                    }
+                    if (!preg_match('/^\d{10}$/', $nisn)) {
+                        throw new Exception("NISN harus berjumlah tepat 10 digit angka!");
+                    }
+                    if (!preg_match('/^\d{10,15}$/', $phone)) {
+                        throw new Exception("Nomor HP / WhatsApp pendaftar harus berupa 10-15 digit angka!");
+                    }
+                    if (!preg_match('/^\d{10,15}$/', $fatherPhone)) {
+                        throw new Exception("Nomor HP / WhatsApp orang tua harus berupa 10-15 digit angka!");
+                    }
+                    if (!is_numeric($finalScore) || $finalScore < 0 || $finalScore > 100) {
+                        throw new Exception("Nilai akhir rata-rata harus berupa angka dalam rentang 0.00 hingga 100.00!");
+                    }
+
+                    // Deferred File Operations tracking arrays
+                    $oldFilesToDelete = [];
+                    $newFilesUploaded = [];
+
+                    // Function for secure file upload with deferred file tracking
+                    $handleUpload = function($fileInputName, $prefix, $userId, $targetDir, $oldFile, &$oldFilesToDelete, &$newFilesUploaded, $allowedMime = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf']) {
                         if (!empty($_FILES[$fileInputName]['name']) && $_FILES[$fileInputName]['error'] === UPLOAD_ERR_OK) {
                             $tmpPath = $_FILES[$fileInputName]['tmp_name'];
                             $mime = mime_content_type($tmpPath);
@@ -1444,8 +2235,9 @@ try {
                             if (!is_dir($targetDir)) mkdir($targetDir, 0777, true);
                             
                             if (move_uploaded_file($tmpPath, $targetDir . $filename)) {
+                                $newFilesUploaded[] = $targetDir . $filename;
                                 if ($oldFile && file_exists($targetDir . $oldFile) && is_file($targetDir . $oldFile)) {
-                                    @unlink($targetDir . $oldFile);
+                                    $oldFilesToDelete[] = $targetDir . $oldFile; // Defer deletion until DB commit
                                 }
                                 return $filename;
                             }
@@ -1453,7 +2245,7 @@ try {
                         return null;
                     };
 
-                    // Handle photo upload
+                    // Handle file uploads
                     $getOldData = $conn->prepare("SELECT p.photo, pmb.certificate_file, pmb.payment_proof FROM personal_profiles p LEFT JOIN pmb_data pmb ON p.user_id = pmb.user_id WHERE p.user_id = ?");
                     $getOldData->execute([$userId]);
                     $oldData = $getOldData->fetch();
@@ -1462,9 +2254,17 @@ try {
                     $certDir = defined('PMB_CERT_PATH') ? PMB_CERT_PATH . '/' : __DIR__ . '/../public/uploads/pmb_docs/certificates/';
                     $payDir = defined('PMB_PAY_PATH') ? PMB_PAY_PATH . '/' : __DIR__ . '/../public/uploads/pmb_docs/payments/';
                     
-                    $filename = $handleUpload('pict', 'app', $userId, $photoDir, $oldData['photo'] ?? null, ['image/jpeg', 'image/png', 'image/webp']);
-                    $certFile = $handleUpload('certificate_file', 'cert', $userId, $certDir, $oldData['certificate_file'] ?? null, ['image/jpeg', 'image/png', 'application/pdf']);
-                    $paymentProof = $handleUpload('payment_proof', 'pay', $userId, $payDir, $oldData['payment_proof'] ?? null, ['image/jpeg', 'image/png', 'application/pdf']);
+                    $filename = $handleUpload('pict', 'app', $userId, $photoDir, $oldData['photo'] ?? null, $oldFilesToDelete, $newFilesUploaded, ['image/jpeg', 'image/png', 'image/webp']);
+                    $certFile = $handleUpload('certificate_file', 'cert', $userId, $certDir, $oldData['certificate_file'] ?? null, $oldFilesToDelete, $newFilesUploaded, ['image/jpeg', 'image/png', 'image/webp', 'application/pdf']);
+                    $paymentProof = $handleUpload('payment_proof', 'pay', $userId, $payDir, $oldData['payment_proof'] ?? null, $oldFilesToDelete, $newFilesUploaded, ['image/jpeg', 'image/png', 'image/webp', 'application/pdf']);
+
+                    // Verify document presence if first upload
+                    if (empty($oldData['certificate_file']) && empty($certFile)) {
+                        throw new Exception("Scan Ijazah / SKL wajib diunggah!");
+                    }
+                    if (empty($oldData['payment_proof']) && empty($paymentProof)) {
+                        throw new Exception("Bukti Pembayaran Pendaftaran wajib diunggah!");
+                    }
 
                     $conn->beginTransaction();
 
@@ -1502,9 +2302,23 @@ try {
                         $updatePmb->execute($pmbParams);
                         
                         $conn->commit();
+
+                        // DB COMMIT SUCCESS: Execute deferred unlinks of old files safely
+                        foreach ($oldFilesToDelete as $oldFilePath) {
+                            if (file_exists($oldFilePath) && is_file($oldFilePath)) {
+                                @unlink($oldFilePath);
+                            }
+                        }
                     } catch (Exception $innerE) {
-                        $conn->rollBack();
-                        // Special unique violation handling for NIK
+                        if ($conn->inTransaction()) {
+                            $conn->rollBack();
+                        }
+                        // DB ROLLBACK: Clean up newly uploaded files to prevent orphaned files
+                        foreach ($newFilesUploaded as $newFilePath) {
+                            if (file_exists($newFilePath) && is_file($newFilePath)) {
+                                @unlink($newFilePath);
+                            }
+                        }
                         if ($innerE->getCode() == 23505 && strpos($innerE->getMessage(), 'nik') !== false) {
                             throw new Exception("NIK yang Anda masukkan sudah terdaftar oleh pendaftar lain.");
                         }
@@ -1638,18 +2452,15 @@ try {
                         $majorId = (int)($applicant['major_id'] ?: getMajorIdFromCode($programCode));
                         $prefixNim = $programCode . '.' . $currentYear . '.';
 
-                        // Order by id DESC to accurately fetch the latest inserted student sequence
-                        $getLatestNimStmt = $conn->prepare("SELECT nim FROM students_data WHERE nim LIKE ? ORDER BY id DESC LIMIT 1");
+                        // Fetch maximum integer sequence atomically from database
+                        $getLatestNimStmt = $conn->prepare("
+                            SELECT MAX(CAST(SPLIT_PART(nim, '.', 3) AS INTEGER)) 
+                            FROM students_data 
+                            WHERE nim LIKE ?
+                        ");
                         $getLatestNimStmt->execute([$prefixNim . '%']);
-                        $latestNim = $getLatestNimStmt->fetchColumn();
-
-                        if ($latestNim) {
-                            $parts = explode('.', $latestNim);
-                            $lastSequence = (int)end($parts);
-                            $nextSequence = $lastSequence + 1;
-                        } else {
-                            $nextSequence = 1;
-                        }
+                        $lastSequence = (int)$getLatestNimStmt->fetchColumn();
+                        $nextSequence = $lastSequence + 1;
 
                         $newNim = $prefixNim . str_pad($nextSequence, 5, '0', STR_PAD_LEFT);
 
@@ -1713,6 +2524,50 @@ try {
                     if ($conn && $conn->inTransaction()) {
                         $conn->rollBack();
                     }
+                    $response = ['status' => 'error', 'message' => $e->getMessage()];
+                }
+                echo json_encode($response);
+                break;
+
+            case 'fetchApplicants':
+                try {
+                    $getApplicantsStmt = $conn->query("
+                        SELECT pmb.id, pmb.user_id, pmb.nisn, pmb.mother_name, pmb.father_name, pmb.parent_phone,
+                               pmb.high_school_name AS school_origin, pmb.high_school_major AS major,
+                               pmb.high_school_address AS school_address, pmb.high_school_score AS final_score,
+                               pmb.certificate_file, pmb.payment_proof, pmb.payment_status, pmb.admission_track,
+                               pmb.application_status AS status, pmb.created_at,
+                               p.full_name, p.nik, p.gender, p.pob, p.dob, p.religion, p.marital_status, p.job_status,
+                               p.phone, p.ktp_address, p.domicile_address AS address, p.photo AS pict,
+                               u.username, u.email,
+                               m.major_code AS program_code, m.major_name
+                        FROM pmb_data pmb
+                        JOIN users_credential u ON pmb.user_id = u.id
+                        JOIN personal_profiles p ON p.user_id = u.id
+                        LEFT JOIN majors_data m ON pmb.major_id = m.id
+                        ORDER BY pmb.id DESC
+                    ");
+                    $list = $getApplicantsStmt ? $getApplicantsStmt->fetchAll() : [];
+                    $defaultPict = 'https://cdn-icons-png.freepik.com/512/3875/3875148.png?ga=GA1.1.599436757.1735230785';
+                    $uploadDir = defined('UPLOAD_PATH') ? UPLOAD_PATH : __DIR__ . '/../public/uploads/user_photos';
+                    $pmbUploadDir = defined('PMB_DOCS_PATH') ? PMB_DOCS_PATH : __DIR__ . '/../public/uploads/pmb_docs';
+
+                    foreach ($list as &$applicant) {
+                        $pictName = $applicant['pict'] ?? '';
+                        $imgSrc = $defaultPict;
+                        if ($pictName) {
+                            if (file_exists($uploadDir . '/' . $pictName)) {
+                                $imgSrc = defined('UPLOAD_URL') ? UPLOAD_URL . $pictName : './public/uploads/user_photos/' . $pictName;
+                            } elseif (file_exists($pmbUploadDir . '/' . $pictName)) {
+                                $imgSrc = defined('PMB_DOCS_URL') ? PMB_DOCS_URL . $pictName : './public/uploads/pmb_docs/' . $pictName;
+                            }
+                        }
+                        $applicant['img_src'] = $imgSrc;
+                        $applicant['father_phone'] = $applicant['parent_phone'] ?? null;
+                    }
+
+                    $response = ['status' => 'success', 'data' => $list, 'total' => count($list)];
+                } catch (Exception $e) {
                     $response = ['status' => 'error', 'message' => $e->getMessage()];
                 }
                 echo json_encode($response);
@@ -2216,17 +3071,24 @@ try {
                 break;
 
             case 'sessionCheck':
-                $sessionTimeout = 1600;
-                if (isset($_SESSION['last_activity'])) {
-                    $inactive = time() - $_SESSION['last_activity'];
-                    if ($inactive > $sessionTimeout) {
+                $sessionTimeout = 1800;
+                $userId = $_SESSION['user']['id'] ?? ($_SESSION['applicant']['user_id'] ?? null);
+                $sessionToken = $_SESSION['user']['session_token'] ?? ($_SESSION['applicant']['session_token'] ?? null);
+
+                if (!$userId || !$sessionToken) {
+                    $response['status'] = 'terminated';
+                } else {
+                    $stmtSessionCheck = $conn->prepare("SELECT session_token, account_status FROM users_credential WHERE id = ?");
+                    $stmtSessionCheck->execute([$userId]);
+                    $dbState = $stmtSessionCheck->fetch();
+
+                    if (!$dbState || ($dbState['account_status'] ?? '') !== 'active' || empty($dbState['session_token']) || $dbState['session_token'] !== $sessionToken) {
+                        $response['status'] = 'terminated';
+                    } elseif (isset($_SESSION['last_activity']) && (time() - $_SESSION['last_activity'] > $sessionTimeout)) {
                         $response['status'] = 'timeout';
                     } else {
                         $response['status'] = 'active';
                     }
-                } else {
-                    $_SESSION['last_activity'] = time();
-                    $response['status'] = 'inactive';
                 }
                 echo json_encode($response['status']);
                 break;

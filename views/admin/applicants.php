@@ -36,13 +36,28 @@ function truncate18($text) {
 }
 ?>
 
+<style>
+.spin-animation {
+    animation: spin 0.8s linear infinite;
+    display: inline-block;
+}
+@keyframes spin {
+    100% { transform: rotate(360deg); }
+}
+</style>
+
 <div class="container-fluid px-0">
     <div class="card border-0 shadow-sm rounded-4 mb-4">
         <div class="card-header bg-body border-bottom p-4">
             <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
                 <div>
                     <h5 class="fw-bold mb-1 text-primary"><i class="bi bi-person-lines-fill me-2"></i>Data Pendaftar Mahasiswa Baru (PMB)</h5>
-                    <span class="text-body-secondary" style="font-size: 0.85rem;">Kelola dan verifikasi pendaftaran calon mahasiswa baru. Total pendaftar saat ini: <strong><?php echo count($applicantsList); ?></strong></span>
+                    <span class="text-body-secondary" style="font-size: 0.85rem;">Kelola dan verifikasi pendaftaran calon mahasiswa baru. Total pendaftar saat ini: <strong id="totalApplicantsCount"><?php echo count($applicantsList); ?></strong></span>
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                    <button type="button" class="btn btn-outline-primary btn-sm px-3 rounded-pill fw-semibold" id="refreshBtn" title="Refresh Data Tabel">
+                        <i class="bi bi-arrow-clockwise me-1" id="refreshIcon"></i>Refresh Data
+                    </button>
                 </div>
             </div>
         </div>
@@ -63,7 +78,7 @@ function truncate18($text) {
                             <th class="text-center" style="width: 140px;">Aksi & Detail</th>
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody id="applicantsTableBody">
                         <?php if (empty($applicantsList)): ?>
                             <tr>
                                 <td colspan="9" class="text-center text-muted py-4">Belum ada data pendaftar mahasiswa baru.</td>
@@ -181,7 +196,8 @@ function truncate18($text) {
                             <img id="detail_img" src="" class="rounded-circle border border-2 shadow-sm object-fit-cover mb-2" width="110" height="110" alt="Foto Pendaftar">
                             <h6 id="detail_full_name" class="fw-bold text-body mb-1"></h6>
                             <span id="detail_status_badge" class="badge bg-secondary mb-2"></span>
-                            <small class="text-muted" id="detail_app_id"></small>
+                            <small class="text-muted mb-2" id="detail_app_id"></small>
+                            <span id="detail_prodi" class="badge bg-primary text-white rounded-pill px-3 py-2 mt-1"></span>
                         </div>
                     </div>
 
@@ -248,19 +264,22 @@ function truncate18($text) {
                 <hr class="my-3" style="border-top: 1px solid #000000; opacity: 0.35;">
 
                 <div class="row g-3">
-                    <div class="col-md-6">
+                    <div class="col-md-12">
                         <h6 class="text-primary font-weight-bold mb-2">👨‍👩‍👧 2. Data Orang Tua / Wali</h6>
-                        <small class="text-muted d-block">Nama Ibu Kandung</small>
-                        <strong id="detail_mother_name" class="text-body d-block mb-1"></strong>
-                        <small class="text-muted d-block">Nama Ayah</small>
-                        <strong id="detail_father_name" class="text-body d-block mb-1"></strong>
-                        <small class="text-muted d-block">No. HP / WhatsApp Ayah</small>
-                        <strong id="detail_father_phone" class="text-body"></strong>
-                    </div>
-                    <div class="col-md-6">
-                        <h6 class="text-primary font-weight-bold mb-2">🎯 3. Program Studi Pilihan</h6>
-                        <small class="text-muted d-block">Prodi Dipilih (Kampus)</small>
-                        <strong id="detail_prodi" class="text-body"></strong>
+                        <div class="row g-2">
+                            <div class="col-md-4">
+                                <small class="text-muted d-block">Nama Ibu Kandung</small>
+                                <strong id="detail_mother_name" class="text-body"></strong>
+                            </div>
+                            <div class="col-md-4">
+                                <small class="text-muted d-block">Nama Ayah</small>
+                                <strong id="detail_father_name" class="text-body"></strong>
+                            </div>
+                            <div class="col-md-4">
+                                <small class="text-muted d-block">No. HP / WhatsApp Orang Tua</small>
+                                <strong id="detail_father_phone" class="text-body"></strong>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -268,7 +287,7 @@ function truncate18($text) {
 
                 <div class="row g-3">
                     <div class="col-md-6">
-                        <h6 class="text-primary font-weight-bold mb-2">🏫 4. Data Sekolah Asal</h6>
+                        <h6 class="text-primary font-weight-bold mb-2">🏫 3. Data Sekolah Asal</h6>
                         <small class="text-muted d-block">Nama Sekolah Asal</small>
                         <strong id="detail_school_origin" class="text-body d-block mb-1"></strong>
                         <small class="text-muted d-block">Jurusan Sekolah Asal</small>
@@ -279,7 +298,7 @@ function truncate18($text) {
                         <span id="detail_school_address" class="text-body"></span>
                     </div>
                     <div class="col-md-6">
-                        <h6 class="text-primary font-weight-bold mb-2">🏠 5. Data Tempat Tinggal</h6>
+                        <h6 class="text-primary font-weight-bold mb-2">🏠 4. Data Tempat Tinggal</h6>
                         <small class="text-muted d-block">Alamat Sesuai KTP</small>
                         <span id="detail_ktp_address" class="text-body d-block mb-2"></span>
                         <small class="text-muted d-block">Alamat Domisili (Saat Ini)</small>
@@ -291,12 +310,12 @@ function truncate18($text) {
 
                 <div class="row g-3">
                     <div class="col-md-6">
-                        <h6 class="text-primary font-weight-bold mb-2">📜 6. Berkas Pendaftaran</h6>
+                        <h6 class="text-primary font-weight-bold mb-2">📜 5. Berkas Pendaftaran</h6>
                         <small class="text-muted d-block">Sertifikat / Ijazah</small>
                         <div id="detail_cert_container" class="mt-1"></div>
                     </div>
                     <div class="col-md-6">
-                        <h6 class="text-primary font-weight-bold mb-2">💳 7. Status & Bukti Pembayaran</h6>
+                        <h6 class="text-primary font-weight-bold mb-2">💳 6. Status & Bukti Pembayaran</h6>
                         <small class="text-muted d-block">Status Pembayaran</small>
                         <span id="detail_payment_status" class="badge bg-secondary mb-2"></span>
                         <small class="text-muted d-block">Bukti Pembayaran PMB</small>
@@ -312,8 +331,110 @@ function truncate18($text) {
 </div>
 
 <script>
+function truncate18Js(text) {
+    let str = (text || '').trim();
+    if (str.length > 18) {
+        return str.substring(0, 18) + '...';
+    }
+    return str;
+}
+
+function escapeHtml(text) {
+    if (text === null || text === undefined) return '';
+    return String(text)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
+
+function renderTableRows(list) {
+    let tbody = $('#applicantsTableBody');
+    tbody.empty();
+    if (!list || list.length === 0) {
+        tbody.html('<tr><td colspan="9" class="text-center text-muted py-4">Belum ada data pendaftar mahasiswa baru.</td></tr>');
+        return;
+    }
+
+    list.forEach(function(applicant, index) {
+        let jsonStr = escapeHtml(JSON.stringify(applicant));
+        let statusBadgeHtml = '';
+        if (applicant.status === 'Draft') {
+            statusBadgeHtml = '<span class="badge bg-secondary">Draft</span>';
+        } else if (applicant.status === 'Pending') {
+            statusBadgeHtml = '<span class="badge bg-warning text-body">Pending TU</span>';
+        } else if (applicant.status === 'Approved') {
+            statusBadgeHtml = '<span class="badge bg-success">Diterima</span>';
+        } else {
+            statusBadgeHtml = '<span class="badge bg-danger">Ditolak</span>';
+        }
+
+        let prodiBadgeHtml = applicant.program_code 
+            ? '<span class="badge bg-info text-body fs-6">' + escapeHtml(applicant.program_code) + '</span>'
+            : '<span class="text-muted small">Belum Pilih</span>';
+
+        let actionHtml = '';
+        if (applicant.status === 'Pending') {
+            actionHtml = '<button class="btn btn-sm btn-success btn-verify mb-1 w-100" data-id="' + applicant.id + '" data-action="Approve">✓ Terima & NIM</button>' +
+                         '<button class="btn btn-sm btn-danger btn-verify w-100" data-id="' + applicant.id + '" data-action="Reject">✕ Tolak</button>';
+        } else if (applicant.status === 'Approved') {
+            actionHtml = '<span class="badge bg-success d-block">Resmi Mahasiswa</span>';
+        } else if (applicant.status === 'Draft') {
+            actionHtml = '<span class="text-muted small d-block">Mengisi Berkas</span>';
+        } else {
+            actionHtml = '<span class="text-muted small d-block">Selesai</span>';
+        }
+
+        let createdAtFormatted = applicant.created_at ? 'Created: ' + new Date(applicant.created_at).toLocaleString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '-';
+
+        let tr = '<tr>' +
+            '<td class="text-center">' + (index + 1) + '</td>' +
+            '<td class="text-center"><img src="' + escapeHtml(applicant.img_src) + '" class="rounded-circle object-fit-cover shadow-sm" width="50" height="50" alt="Foto"></td>' +
+            '<td><strong title="' + escapeHtml(applicant.full_name) + '">' + escapeHtml(truncate18Js(applicant.full_name)) + '</strong><br>' +
+                '<small class="text-muted" title="' + escapeHtml(applicant.email) + '">✉️ ' + escapeHtml(truncate18Js(applicant.email)) + '</small><br>' +
+                '<small class="text-muted" title="' + escapeHtml(applicant.phone || '-') + '">📞 ' + escapeHtml(truncate18Js(applicant.phone || '-')) + '</small></td>' +
+            '<td><strong>' + escapeHtml(applicant.school_origin || '-') + '</strong><br><small class="text-muted">' + escapeHtml(applicant.school_address || '-') + '</small></td>' +
+            '<td class="text-center"><span class="badge bg-body-secondary text-body border fs-6">' + escapeHtml(applicant.final_score || '-') + '</span></td>' +
+            '<td class="text-center">' + prodiBadgeHtml + '</td>' +
+            '<td class="text-center">' + statusBadgeHtml + '</td>' +
+            '<td><small class="d-block">' + createdAtFormatted + '</small></td>' +
+            '<td class="text-center"><button type="button" class="btn btn-sm btn-info text-white btn-detail w-100 mb-1" data-applicant=\'' + jsonStr + '\'>🔍 Detail</button>' + actionHtml + '</td>' +
+            '</tr>';
+        tbody.append(tr);
+    });
+}
+
+function reloadApplicantsTable() {
+    let btn = $('#refreshBtn');
+    let icon = $('#refreshIcon');
+    btn.prop('disabled', true);
+    icon.addClass('spin-animation');
+
+    $.ajax({
+        url: 'src/api.php?req=fetchApplicants',
+        type: 'GET',
+        dataType: 'json',
+        success: function(response) {
+            btn.prop('disabled', false);
+            icon.removeClass('spin-animation');
+            if (response.status === 'success') {
+                $('#totalApplicantsCount').text(response.total);
+                renderTableRows(response.data);
+            } else {
+                alert('Gagal merefresh data: ' + (response.message || 'Error'));
+            }
+        },
+        error: function() {
+            btn.prop('disabled', false);
+            icon.removeClass('spin-animation');
+            alert('Gagal terhubung ke server [fetchApplicants].');
+        }
+    });
+}
+
 $(document).ready(function() {
-    $('.btn-detail').on('click', function() {
+    $(document).on('click', '.btn-detail', function() {
         let applicant = $(this).data('applicant');
         if (typeof applicant === 'string') {
             applicant = JSON.parse(applicant);
@@ -330,12 +451,13 @@ $(document).ready(function() {
         $('#detail_religion').text(applicant.religion || '-');
         $('#detail_pob').text(applicant.pob || '-');
         $('#detail_dob').text(applicant.dob || '-');
-        $('#detail_marital_status').text(applicant.marital_status || 'Belum Menikah');
-        $('#detail_job_status').text(applicant.job_status || 'Belum Bekerja');
+        $('#detail_marital_status').text(applicant.marital_status || '-');
+        $('#detail_job_status').text(applicant.job_status || '-');
         $('#detail_mother_name').text(applicant.mother_name || '-');
         $('#detail_father_name').text(applicant.father_name || '-');
         $('#detail_father_phone').text(applicant.father_phone || '-');
-        $('#detail_prodi').text(applicant.program_code || '-');
+        let prodiText = (applicant.program_code && applicant.major_name) ? (applicant.program_code + ' - ' + applicant.major_name) : (applicant.program_code || '-');
+        $('#detail_prodi').text(prodiText);
         $('#detail_school_origin').text(applicant.school_origin || '-');
         $('#detail_school_jurusan').text(applicant.major || '-');
         $('#detail_final_score').text(applicant.final_score || '-');
@@ -386,7 +508,7 @@ $(document).ready(function() {
         myModal.show();
     });
 
-    $('.btn-verify').on('click', function() {
+    $(document).on('click', '.btn-verify', function() {
         let applicantId = $(this).data('id');
         let action = $(this).data('action');
         let confirmText = action === 'Approve' ? 'Apakah Anda yakin ingin MENERIMA pendaftar ini dan me-generate NIM otomatis?' : 'Apakah Anda yakin ingin MENOLAK pendaftar ini?';
@@ -403,7 +525,7 @@ $(document).ready(function() {
                     let res = typeof response === 'object' ? response : JSON.parse(response);
                     if (res.status === 'success') {
                         alert(res.message);
-                        location.reload();
+                        reloadApplicantsTable();
                     } else {
                         alert("Error: " + res.message);
                     }
@@ -413,6 +535,10 @@ $(document).ready(function() {
                 }
             });
         }
+    });
+
+    $('#refreshBtn').on('click', function() {
+        reloadApplicantsTable();
     });
 });
 </script>

@@ -24,6 +24,7 @@ Seluruh dokumentasi teknis dan panduan pengembangan sistem dipusatkan di folder 
 | 🚀 **[Progression Tracking](file:///d:/PROJECTS/app_web/sistem_akademik/docs/PROGRESSION.md)** | Log progres harian, status pencapaian sistem, catatan teknis, serta agenda kerja harian. |
 | 📜 **[Changelogs](file:///d:/PROJECTS/app_web/sistem_akademik/docs/CHANGELOGS.md)** | Riwayat seluruh pembaruan teknis sistem dari versi awal hingga versi terkini (`v0.8.0`). |
 | 🧭 **[Branch Guidelines](file:///d:/PROJECTS/app_web/sistem_akademik/docs/BRANCH_GUIDELINES.md)** | Panduan isolasi konteks per modul (*scope boundaries*), kepemilikan file, dan batasan kerja branch. |
+| 📋 **[Prompt Templates](file:///d:/PROJECTS/app_web/sistem_akademik/docs/PROMPT_TEMPLATES.md)** | Template prompt pembuka siap pakai untuk setiap branch modul. |
 
 ---
 

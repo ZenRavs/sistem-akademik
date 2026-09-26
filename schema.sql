@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS users_credential (
     session_token   VARCHAR(255) DEFAULT NULL,    -- Token sesi tunggal (single-device login enforcement)
     failed_attempts SMALLINT DEFAULT 0,           -- Proteksi brute-force login
     locked_until    TIMESTAMP DEFAULT NULL,       -- Masa kunci akun sementara saat berkali-kali salah password
+    pswd_reset      VARCHAR(255) DEFAULT NULL,    -- Token/Status reset password (persiapan fitur reset password)
     created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -30,8 +31,8 @@ CREATE TABLE IF NOT EXISTS personal_profiles (
     pob              VARCHAR(100),                -- Tempat Lahir
     dob              DATE,                        -- Tanggal Lahir
     religion         VARCHAR(50),                 -- Agama
-    marital_status   VARCHAR(50) DEFAULT 'Belum Menikah',
-    job_status       VARCHAR(50) DEFAULT 'Belum Bekerja',
+    marital_status   VARCHAR(50) DEFAULT NULL,
+    job_status       VARCHAR(50) DEFAULT NULL,
     phone            VARCHAR(50),                 -- No. HP / WhatsApp Utama
     emerg_phone      VARCHAR(50),                 -- No. Kontak Darurat (Emergency Contact)
     ktp_address      TEXT,                        -- Alamat Sesuai KTP

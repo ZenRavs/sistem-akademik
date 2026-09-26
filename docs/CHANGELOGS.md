@@ -7,6 +7,8 @@ Format dokumen ini mengacu pada standar [Keep a Changelog](https://keepachangelo
 ---
 
 ## 📑 Daftar Isi
+- [v0.9.3 - 2026-09-26](#v093---2026-09-26)
+- [v0.9.2 - 2026-09-25](#v092---2026-09-25)
 - [v0.9.1 - 2026-09-23](#v091---2026-09-23)
 - [v0.9.0 - 2026-09-23](#v090---2026-09-23)
 - [v0.8.0 - 2026-09-22](#v080---2026-09-22)
@@ -19,6 +21,65 @@ Format dokumen ini mengacu pada standar [Keep a Changelog](https://keepachangelo
 - [v0.1.2026 - September 2026](#v012026---2026-09-20)
 - [v0.1.1 - Agustus 2026](#v011---2026-08-15)
 - [v0.1.0 - Inisialisasi Proyek](#v010---2025-02-14)
+
+---
+
+## [v0.9.3] - 2026-09-26
+
+### 🔐 Manajemen Kredensial User, Proteksi Role, & Realtime Terminate Session
+- **Pembaruan Skema Database (`schema.sql` & `scripts/add_pswd_reset_column.php`)**:
+  - Menambahkan kolom `pswd_reset` (`VARCHAR(255) NULL`) ke tabel `users_credential` sebagai persiapan infrastruktur reset password.
+  - Membuat skrip migrasi `scripts/add_pswd_reset_column.php` untuk eksekusi penambahan kolom secara aman pada database aktif.
+- **Form Kredensial Baru & Integrasi Profil Personal (`views/admin/form/new_users_credential.php`)**:
+  - Mengganti form lama `user_form.php` menjadi `new_users_credential.php` dan menyelaraskan struktur input dengan skema tabel `users_credential` & `personal_profiles`.
+  - Menghubungkan tombol *"Tambah User Baru"* di halaman `views/admin/users.php` langsung ke form `new_users_credential.php`.
+  - Menambahkan dukungan pengisian data profil personal awal (`full_name`, `nik`, `gender`, `pob`, `dob`, `religion`, `phone`, `ktp_address`) saat pembuatan akun manual.
+  - Membatasi pembuatan akun manual hanya untuk peran `admin` dan `superadmin` (dan hanya `superadmin` yang diizinkan menambah user baru).
+- **Aturan Proteksi Peran & Pembatasan Hapus Akun (`src/api.php` & `views/admin/users.php`)**:
+  - Menambahkan proteksi backend: Menolak penghapusan permanen untuk akun ber-role `dosen`, `pegawai` (`admin`/`superadmin`), dan `mahasiswa`. Role utama ini hanya dapat dinonaktifkan (`suspended`/`banned`) melalui modal edit.
+  - Menolak pengeditan manual untuk akun di luar role `admin` dan `superadmin`.
+  - Menghilangkan tombol aksi (edit/hapus/terminate) pada tabel untuk akun pengguna yang sedang login (*akun sendiri*).
+  - Merapikan tabel pengguna dengan menghapus badge *"Dikelola di Master Data"*.
+- **Penyempurnaan Modal Admin & Kontrol Sesi (`views/admin/users.php`)**:
+  - Modal *"Lihat Kredensial User"*: Menampilkan data kredensial non-editable lengkap dengan fitur toggle mata (*censored/view password*).
+  - Modal *"Edit User Credential"*: Mengganti field password utama dengan field *Update New Password* & *Confirm Password* sebagai placeholder fitur lupa/reset password.
+  - Tombol *"Personal Profile"*: Diarahkan langsung ke halaman profil personal akun terkait.
+  - Tombol *"Terminate Sesi (Force Logout)"*: Fitur interaktif khusus `superadmin` untuk memutus sesi aktif pengguna secara paksa.
+  - Tombol *"Refresh Data Tabel"*: Menambahkan tombol Refresh interaktif (`#refreshBtn`) berikon putar animasi CSS (`bi-arrow-clockwise`) di header tabel untuk memuat ulang data pengguna secara realtime tanpa perlu reload seluruh halaman.
+- **Perbaikan Keamanan Sesi Aktif & Realtime Invalidation (`portal.php` & `src/api.php`)**:
+  - **Fix Bug Invalidation Token (`portal.php`)**: Memperbaiki logika *Single-Device Enforcement*. Ketika `session_token` di DB bernilai `NULL` (akibat force logout atau pengosongan DB), sistem kini secara otomatis menghancurkan sesi browser dan me-redirect pengguna ke `index.php` saat refresh.
+  - **Realtime AJAX Background Session Check (`src/api.php?req=sessionCheck`)**: Meng-update endpoint `sessionCheck` untuk me-verifikasi `session_token` dan `account_status` ke database setiap 10 detik. Jika token di-clear, API mengembalikan respon `'terminated'` dan JavaScript langsung me-logout pengguna secara instan tanpa perlu refresh.
+- **Fitur Edit Profil Mandiri (`portal.php`, `views/layouts/*`, `src/api.php`)**:
+  - **Opsi Dropdown Quick User**: Menambahkan item menu `"Edit Profile"` ke dalam dropdown user avatar (`<!-- Quick User Dropdown -->`) di topbar header untuk semua layout (`admin_layout.php`, `student_layout.php`, `lecturer_layout.php`).
+  - **Modal Interaktif `editMyProfileModal`**: Menyediakan modal mandiri berisi bidang data akun `users_credential` (Username, Role, Email, & Toggle Ganti Password dengan verifikasi password lama) dan data diri `personal_profiles` (Upload Pas Foto Profil Baru, Nama Lengkap, NIK 16 digit, Jenis Kelamin, Tempat/Tgl Lahir, Agama, Status Nikah/Kerja, No. WA, Alamat KTP & Domisili).
+  - **Endpoint Backend Atomis (`getMyProfileDetail` & `updateMyProfile`)**: Menangani pembacaan & pembaruan data kredensial serta profil personal secara atomic dengan validasi duplikasi email, format NIK, sanitasi upload foto profil, dan pembaruan instan pada variabel sesi PHP (`$_SESSION['user']`).
+
+---
+
+## [v0.9.2] - 2026-09-25
+
+### 🛡️ Pengetatan Validasi Form, Keyboard Numerik, & Integritas Transaksi Berkas PMB
+- **Form Pendaftaran Mahasiswa Baru (`views/applicant/portal.php`)**:
+  - **Penerapan All Fields Mandatory**: Seluruh field (termasuk NIK 16-digit, NISN 10-digit, Nama Ibu, Nama Ayah, No. WA Orang Tua, Asal Sekolah, Jurusan, Nilai Akhir, Alamat KTP, Alamat Domisili, dan Berkas Upload) kini wajib diisi (`required`) disertai indikator `<span class="text-danger">*</span>`.
+  - **Unselected Default Status**: Dropdown `marital_status` dan `job_status` pada portal pendaftar kini secara default bernilai unselected (`-- Pilih Status --`) saat data awal bernilai `NULL`.
+  - **Numeric Keyboard & Realtime Filter**: Menambahkan atribut `inputmode="numeric"`/`inputmode="decimal"`, `pattern`, `maxlength`, dan filter JavaScript `oninput` pada seluruh field angka (NIK, NISN, Phone, Parent Phone, Nilai Akhir) untuk memicu keyboard numerik di seluler dan melarang pengetikan huruf/karakter non-angka.
+  - **Ekstensi Upload Ijazah**: Menyelaraskan atribut `accept` pada `certificate_file` menjadi `.pdf,image/jpeg,image/png,image/webp`.
+- **Panel Modal Admin Pendaftar (`views/admin/applicants.php`)**:
+  - **Tombol Refresh Data**: Menambahkan tombol *"Refresh Data"* (`#refreshBtn`) berdesain pill outline primary dengan ikon putar (`bi-arrow-clockwise`) pada header kartu untuk memuat ulang data pendaftar terkini secara instan.
+  - **Relokasi Badge Prodi Pilihan**: Menghapus seksi *"🎯 3. Program Studi Pilihan"* dari grid kanan dan memindahkan nama Program Studi Pilihan langsung ke bawah ID Pendaftar (`#detail_app_id`) pada kartu profil kiri sebagai badge aksen biru (`badge bg-primary rounded-pill px-3 py-2`).
+  - **Pembaruan Label**: Mengubah label *"No. HP / WhatsApp Ayah"* menjadi **"No. HP / WhatsApp Orang Tua"**.
+  - **Fallback Default Standard**: Mengubah nilai fallback `detail_marital_status` dan `detail_job_status` pada modal detail pendaftar menjadi **`"-"`** jika data null/kosong.
+  - **Penataan Penomoran Modal**: Merapikan penomoran seksi modal detail yang tersisa menjadi Seksi 1 hingga Seksi 6.
+- **Backend Core Handler (`src/api.php`)**:
+  - **Sanitasi & Validasi Regex Ketat (`applicantUpdateProfile`)**:
+    - Menerapkan fungsi sanitasi `trim(strip_tags(...))` pada seluruh variabel teks.
+    - Menambahkan validasi regex PHP ketat: NIK (harus 16 angka), NISN (harus 10 angka), No. HP & Parent Phone (harus 10-15 angka), Nilai Akhir (rentang 0.00 - 100.00).
+    - Memastikan penanganan `nik` unik di PostgreSQL agar aman dari exception `SQLSTATE[23505]`.
+  - **Integritas Berkas Deferred File Operations**:
+    - Menunda proses penghapusan berkas lama (`@unlink`) hingga transaksi database `commit()` berhasil dijalankan.
+    - Menambahkan pembersihan berkas baru (`@unlink`) secara otomatis jika terjadi `rollBack()` pada transaksi DB untuk mencegah *broken links* dan file sampah (*orphaned files*).
+  - **Perbaikan Atomisitas Generator NIM (`verifyApplicant`)**:
+    - Menggunakan fungsi SQL `MAX(CAST(SPLIT_PART(nim, '.', 3) AS INTEGER))` untuk mengambil urutan numerik NIM terbesar secara atomic, mencegah terjadinya duplikasi NIM akibat race condition.
 
 ---
 

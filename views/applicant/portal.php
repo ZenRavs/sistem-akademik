@@ -364,18 +364,18 @@ $isLocked = in_array($applicant['status'], ['Pending', 'Approved']);
                             <!-- SEKELOMPOK 1: Data Diri Mahasiswa -->
                             <h6 class="section-header fw-bold text-uppercase mb-3">👤 1. Data Diri Mahasiswa</h6>
                             <div class="mb-3">
-                                <label class="form-label fw-bold text-dark small">Nama Lengkap</label>
+                                <label class="form-label fw-bold text-dark small">Nama Lengkap <span class="text-danger">*</span></label>
                                 <input type="text" class="form-control" name="full_name" value="<?php echo htmlspecialchars($applicant['full_name']); ?>" required <?php echo $isLocked ? 'readonly disabled' : ''; ?>>
                             </div>
 
                             <div class="row">
                                 <div class="col-md-6 mb-3">
-                                    <label class="form-label fw-bold text-dark small">NIK (No. KTP 16-Digit) 🔒</label>
-                                    <input type="text" class="form-control" name="nik" maxlength="16" pattern="\d{16}" title="NIK harus 16 angka" value="<?php echo htmlspecialchars($applicant['nik'] ?? ''); ?>" placeholder="3374xxxxxxxxxxxx" required <?php echo $isLocked ? 'readonly disabled' : ''; ?>>
+                                    <label class="form-label fw-bold text-dark small">NIK (No. KTP 16-Digit) <span class="text-danger">*</span> 🔒</label>
+                                    <input type="text" class="form-control" name="nik" maxlength="16" pattern="\d{16}" inputmode="numeric" oninput="this.value=this.value.replace(/[^0-9]/g,'')" title="NIK harus 16 digit angka" value="<?php echo htmlspecialchars($applicant['nik'] ?? ''); ?>" placeholder="3374xxxxxxxxxxxx" required <?php echo $isLocked ? 'readonly disabled' : ''; ?>>
                                 </div>
                                 <div class="col-md-6 mb-3">
-                                    <label class="form-label fw-bold text-dark small">NISN (10-Digit)</label>
-                                    <input type="text" class="form-control" name="nisn" maxlength="10" pattern="\d{10}" title="NISN harus 10 angka" value="<?php echo htmlspecialchars($applicant['nisn'] ?? ''); ?>" placeholder="00xxxxxxxx" <?php echo $isLocked ? 'readonly disabled' : ''; ?>>
+                                    <label class="form-label fw-bold text-dark small">NISN (10-Digit) <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control" name="nisn" maxlength="10" pattern="\d{10}" inputmode="numeric" oninput="this.value=this.value.replace(/[^0-9]/g,'')" title="NISN harus 10 digit angka" value="<?php echo htmlspecialchars($applicant['nisn'] ?? ''); ?>" placeholder="00xxxxxxxx" required <?php echo $isLocked ? 'readonly disabled' : ''; ?>>
                                 </div>
                             </div>
 
@@ -385,14 +385,14 @@ $isLocked = in_array($applicant['status'], ['Pending', 'Approved']);
                                     <input type="email" class="form-control bg-light" value="<?php echo htmlspecialchars($applicant['email']); ?>" readonly disabled>
                                 </div>
                                 <div class="col-md-6 mb-3">
-                                    <label class="form-label fw-bold text-dark small">No. HP / WhatsApp</label>
-                                    <input type="text" class="form-control" name="phone" value="<?php echo htmlspecialchars($applicant['phone'] ?? ''); ?>" placeholder="08123456789" required <?php echo $isLocked ? 'readonly disabled' : ''; ?>>
+                                    <label class="form-label fw-bold text-dark small">No. HP / WhatsApp <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control" name="phone" maxlength="15" pattern="\d{10,15}" inputmode="numeric" oninput="this.value=this.value.replace(/[^0-9]/g,'')" title="No. HP harus 10-15 digit angka" value="<?php echo htmlspecialchars($applicant['phone'] ?? ''); ?>" placeholder="08123456789" required <?php echo $isLocked ? 'readonly disabled' : ''; ?>>
                                 </div>
                             </div>
 
                             <div class="row">
                                 <div class="col-md-6 mb-3">
-                                    <label class="form-label fw-bold text-dark small">Jenis Kelamin</label>
+                                    <label class="form-label fw-bold text-dark small">Jenis Kelamin <span class="text-danger">*</span></label>
                                     <select class="form-select" name="gender" required <?php echo $isLocked ? 'disabled' : ''; ?>>
                                         <option value="" disabled <?php echo empty($applicant['gender']) ? 'selected' : ''; ?>>-- Pilih Jenis Kelamin --</option>
                                         <option value="Laki-laki" <?php echo (($applicant['gender'] ?? '') === 'Laki-laki') ? 'selected' : ''; ?>>Laki-laki</option>
@@ -400,7 +400,7 @@ $isLocked = in_array($applicant['status'], ['Pending', 'Approved']);
                                     </select>
                                 </div>
                                 <div class="col-md-6 mb-3">
-                                    <label class="form-label fw-bold text-dark small">Agama</label>
+                                    <label class="form-label fw-bold text-dark small">Agama <span class="text-danger">*</span></label>
                                     <select class="form-select" name="religion" required <?php echo $isLocked ? 'disabled' : ''; ?>>
                                         <option value="" disabled <?php echo empty($applicant['religion']) ? 'selected' : ''; ?>>-- Pilih Agama --</option>
                                         <option value="Islam" <?php echo (($applicant['religion'] ?? '') === 'Islam') ? 'selected' : ''; ?>>Islam</option>
@@ -416,27 +416,29 @@ $isLocked = in_array($applicant['status'], ['Pending', 'Approved']);
 
                             <div class="row">
                                 <div class="col-md-6 mb-3">
-                                    <label class="form-label fw-bold text-dark small">Tempat Lahir</label>
+                                    <label class="form-label fw-bold text-dark small">Tempat Lahir <span class="text-danger">*</span></label>
                                     <input type="text" class="form-control" name="pob" value="<?php echo htmlspecialchars($applicant['pob'] ?? ''); ?>" placeholder="Kota Kelahiran" required <?php echo $isLocked ? 'readonly disabled' : ''; ?>>
                                 </div>
                                 <div class="col-md-6 mb-3">
-                                    <label class="form-label fw-bold text-dark small">Tanggal Lahir</label>
+                                    <label class="form-label fw-bold text-dark small">Tanggal Lahir <span class="text-danger">*</span></label>
                                     <input type="date" class="form-control" name="dob" value="<?php echo htmlspecialchars($applicant['dob'] ?? ''); ?>" required <?php echo $isLocked ? 'readonly disabled' : ''; ?>>
                                 </div>
                             </div>
 
                             <div class="row">
                                 <div class="col-md-6 mb-3">
-                                    <label class="form-label fw-bold text-dark small">Status Pernikahan</label>
-                                    <select class="form-select" name="marital_status" <?php echo $isLocked ? 'disabled' : ''; ?>>
-                                        <option value="Belum Menikah" <?php echo (($applicant['marital_status'] ?? '') === 'Belum Menikah' || empty($applicant['marital_status'])) ? 'selected' : ''; ?>>Belum Menikah</option>
+                                    <label class="form-label fw-bold text-dark small">Status Pernikahan <span class="text-danger">*</span></label>
+                                    <select class="form-select" name="marital_status" required <?php echo $isLocked ? 'disabled' : ''; ?>>
+                                        <option value="" disabled <?php echo empty($applicant['marital_status']) ? 'selected' : ''; ?>>-- Pilih Status Pernikahan --</option>
+                                        <option value="Belum Menikah" <?php echo (($applicant['marital_status'] ?? '') === 'Belum Menikah') ? 'selected' : ''; ?>>Belum Menikah</option>
                                         <option value="Menikah" <?php echo (($applicant['marital_status'] ?? '') === 'Menikah') ? 'selected' : ''; ?>>Menikah</option>
                                     </select>
                                 </div>
                                 <div class="col-md-6 mb-3">
-                                    <label class="form-label fw-bold text-dark small">Status Pekerjaan</label>
-                                    <select class="form-select" name="job_status" <?php echo $isLocked ? 'disabled' : ''; ?>>
-                                        <option value="Belum Bekerja" <?php echo (($applicant['job_status'] ?? '') === 'Belum Bekerja' || empty($applicant['job_status'])) ? 'selected' : ''; ?>>Belum Bekerja</option>
+                                    <label class="form-label fw-bold text-dark small">Status Pekerjaan <span class="text-danger">*</span></label>
+                                    <select class="form-select" name="job_status" required <?php echo $isLocked ? 'disabled' : ''; ?>>
+                                        <option value="" disabled <?php echo empty($applicant['job_status']) ? 'selected' : ''; ?>>-- Pilih Status Pekerjaan --</option>
+                                        <option value="Belum Bekerja" <?php echo (($applicant['job_status'] ?? '') === 'Belum Bekerja') ? 'selected' : ''; ?>>Belum Bekerja</option>
                                         <option value="Bekerja" <?php echo (($applicant['job_status'] ?? '') === 'Bekerja') ? 'selected' : ''; ?>>Bekerja</option>
                                     </select>
                                 </div>
@@ -445,20 +447,20 @@ $isLocked = in_array($applicant['status'], ['Pending', 'Approved']);
                             <hr class="field-divider">
 
                             <!-- SEKELOMPOK 2: Data Orang Tua / Wali -->
-                            <h6 class="section-header fw-bold text-uppercase mb-3">👨‍👩‍👧 2. Data Orang Tua / Wali</h6>
+                            <h6 class="section-header fw-bold text-uppercase mb-3">👨‍gsub‍👧 2. Data Orang Tua / Wali</h6>
                             <div class="row">
                                 <div class="col-md-6 mb-3">
-                                    <label class="form-label fw-bold text-dark small">Nama Ibu Kandung</label>
+                                    <label class="form-label fw-bold text-dark small">Nama Ibu Kandung <span class="text-danger">*</span></label>
                                     <input type="text" class="form-control" name="mother_name" value="<?php echo htmlspecialchars($applicant['mother_name'] ?? ''); ?>" placeholder="Nama lengkap ibu kandung" required <?php echo $isLocked ? 'readonly disabled' : ''; ?>>
                                 </div>
                                 <div class="col-md-6 mb-3">
-                                    <label class="form-label fw-bold text-dark small">Nama Ayah</label>
-                                    <input type="text" class="form-control" name="father_name" value="<?php echo htmlspecialchars($applicant['father_name'] ?? ''); ?>" placeholder="Nama lengkap ayah" <?php echo $isLocked ? 'readonly disabled' : ''; ?>>
+                                    <label class="form-label fw-bold text-dark small">Nama Ayah <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control" name="father_name" value="<?php echo htmlspecialchars($applicant['father_name'] ?? ''); ?>" placeholder="Nama lengkap ayah" required <?php echo $isLocked ? 'readonly disabled' : ''; ?>>
                                 </div>
                             </div>
                             <div class="mb-3">
-                                <label class="form-label fw-bold text-dark small">No. HP / WhatsApp Orang Tua</label>
-                                <input type="text" class="form-control" name="parent_phone" value="<?php echo htmlspecialchars($applicant['parent_phone'] ?? ''); ?>" placeholder="08123456789" <?php echo $isLocked ? 'readonly disabled' : ''; ?>>
+                                <label class="form-label fw-bold text-dark small">No. HP / WhatsApp Orang Tua <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" name="parent_phone" maxlength="15" pattern="\d{10,15}" inputmode="numeric" oninput="this.value=this.value.replace(/[^0-9]/g,'')" title="No. HP Orang Tua harus 10-15 digit angka" value="<?php echo htmlspecialchars($applicant['parent_phone'] ?? ''); ?>" placeholder="08123456789" required <?php echo $isLocked ? 'readonly disabled' : ''; ?>>
                             </div>
 
                             <hr class="field-divider">
@@ -467,22 +469,22 @@ $isLocked = in_array($applicant['status'], ['Pending', 'Approved']);
                             <h6 class="section-header fw-bold text-uppercase mb-3">🏫 3. Data Sekolah Asal & Akademik</h6>
                             <div class="row mb-3">
                                 <div class="col-md-6 mb-3 mb-md-0">
-                                    <label class="form-label fw-bold text-dark small">Asal Sekolah (SMA/SMK)</label>
+                                    <label class="form-label fw-bold text-dark small">Asal Sekolah (SMA/SMK) <span class="text-danger">*</span></label>
                                     <input type="text" class="form-control" name="school_origin" value="<?php echo htmlspecialchars($applicant['school_origin'] ?? ''); ?>" placeholder="Contoh: SMAN 1 Semarang" required <?php echo $isLocked ? 'readonly disabled' : ''; ?>>
                                 </div>
                                 <div class="col-md-6">
-                                    <label class="form-label fw-bold text-dark small">Jurusan Sekolah Asal</label>
-                                    <input type="text" class="form-control" name="major" value="<?php echo htmlspecialchars($applicant['major'] ?? ''); ?>" placeholder="Contoh: IPA / IPS / TKJ / RPL" <?php echo $isLocked ? 'readonly disabled' : ''; ?>>
+                                    <label class="form-label fw-bold text-dark small">Jurusan Sekolah Asal <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control" name="major" value="<?php echo htmlspecialchars($applicant['major'] ?? ''); ?>" placeholder="Contoh: IPA / IPS / TKJ / RPL" required <?php echo $isLocked ? 'readonly disabled' : ''; ?>>
                                 </div>
                             </div>
 
                             <div class="row mb-3">
                                 <div class="col-md-6 mb-3 mb-md-0">
-                                    <label class="form-label fw-bold text-dark small">Nilai Akhir Rata-rata</label>
-                                    <input type="number" step="0.01" min="0" max="100" class="form-control" name="final_score" value="<?php echo htmlspecialchars($applicant['final_score'] ?? ''); ?>" placeholder="Contoh: 88.50" required <?php echo $isLocked ? 'readonly disabled' : ''; ?>>
+                                    <label class="form-label fw-bold text-dark small">Nilai Akhir Rata-rata <span class="text-danger">*</span></label>
+                                    <input type="number" step="0.01" min="0" max="100" inputmode="decimal" oninput="this.value=this.value.replace(/[^0-9.]/g,'').replace(/(\..*)\./g,'$1')" class="form-control" name="final_score" value="<?php echo htmlspecialchars($applicant['final_score'] ?? ''); ?>" placeholder="Contoh: 88.50" required <?php echo $isLocked ? 'readonly disabled' : ''; ?>>
                                 </div>
                                 <div class="col-md-6">
-                                    <label class="form-label fw-bold text-dark small">Alamat Sekolah Asal</label>
+                                    <label class="form-label fw-bold text-dark small">Alamat Sekolah Asal <span class="text-danger">*</span></label>
                                     <textarea class="form-control" name="school_address" rows="1" placeholder="Alamat kota/lokasi sekolah asal" required <?php echo $isLocked ? 'readonly disabled' : ''; ?>><?php echo htmlspecialchars($applicant['school_address'] ?? ''); ?></textarea>
                                 </div>
                             </div>
@@ -492,11 +494,11 @@ $isLocked = in_array($applicant['status'], ['Pending', 'Approved']);
                             <!-- SEKELOMPOK 4: Data Domisili / Alamat -->
                             <h6 class="section-header fw-bold text-uppercase mb-3">🏠 4. Data Tempat Tinggal / Alamat</h6>
                             <div class="mb-3">
-                                <label class="form-label fw-bold text-dark small">Alamat Sesuai KTP</label>
-                                <textarea class="form-control" name="ktp_address" rows="2" placeholder="Alamat lengkap sesuai KTP" <?php echo $isLocked ? 'readonly disabled' : ''; ?>><?php echo htmlspecialchars($applicant['ktp_address'] ?? ''); ?></textarea>
+                                <label class="form-label fw-bold text-dark small">Alamat Sesuai KTP <span class="text-danger">*</span></label>
+                                <textarea class="form-control" name="ktp_address" rows="2" placeholder="Alamat lengkap sesuai KTP" required <?php echo $isLocked ? 'readonly disabled' : ''; ?>><?php echo htmlspecialchars($applicant['ktp_address'] ?? ''); ?></textarea>
                             </div>
                             <div class="mb-4">
-                                <label class="form-label fw-bold text-dark small">Alamat Domisili (Tempat Tinggal Saat Ini)</label>
+                                <label class="form-label fw-bold text-dark small">Alamat Domisili (Tempat Tinggal Saat Ini) <span class="text-danger">*</span></label>
                                 <textarea class="form-control" name="address" rows="2" placeholder="Alamat domisili saat ini" required <?php echo $isLocked ? 'readonly disabled' : ''; ?>><?php echo htmlspecialchars($applicant['address'] ?? ''); ?></textarea>
                             </div>
 
@@ -505,15 +507,15 @@ $isLocked = in_array($applicant['status'], ['Pending', 'Approved']);
                             <!-- SEKELOMPOK 5: Berkas Pendaftaran & Pembayaran -->
                             <h6 class="section-header fw-bold text-uppercase mb-3">📄 5. Berkas Pendaftaran & Pembayaran</h6>
                             <div class="mb-3">
-                                <label class="form-label fw-bold text-dark small">Scan Ijazah / SKL (PDF)</label>
+                                <label class="form-label fw-bold text-dark small">Scan Ijazah / SKL (PDF/Image) <?php echo empty($applicant['certificate_file']) ? '<span class="text-danger">*</span>' : ''; ?></label>
                                 <?php if(!empty($applicant['certificate_file'])): ?>
                                     <?php $certUrl = defined('PMB_CERT_URL') ? PMB_CERT_URL : './public/uploads/pmb_docs/certificates/'; ?>
                                     <div class="mb-2"><a href="<?php echo $certUrl . htmlspecialchars($applicant['certificate_file']); ?>" target="_blank" class="btn btn-sm btn-outline-primary rounded-pill px-3">Lihat File Tersimpan</a></div>
                                 <?php endif; ?>
-                                <input type="file" class="form-control" name="certificate_file" accept=".pdf" <?php echo $isLocked ? 'disabled' : ''; ?>>
+                                <input type="file" class="form-control" name="certificate_file" accept=".pdf,image/jpeg,image/png,image/webp" <?php echo empty($applicant['certificate_file']) ? 'required' : ''; ?> <?php echo $isLocked ? 'disabled' : ''; ?>>
                             </div>
                             <div class="mb-4">
-                                <label class="form-label fw-bold text-dark small">Bukti Pembayaran Pendaftaran (Image/PDF)</label>
+                                <label class="form-label fw-bold text-dark small">Bukti Pembayaran Pendaftaran (Image/PDF) <?php echo empty($applicant['payment_proof']) ? '<span class="text-danger">*</span>' : ''; ?></label>
                                 <?php if(!empty($applicant['payment_proof'])): ?>
                                     <?php $payUrl = defined('PMB_PAY_URL') ? PMB_PAY_URL : './public/uploads/pmb_docs/payments/'; ?>
                                     <div class="mb-2">
@@ -523,7 +525,7 @@ $isLocked = in_array($applicant['status'], ['Pending', 'Approved']);
                                         </span>
                                     </div>
                                 <?php endif; ?>
-                                <input type="file" class="form-control" name="payment_proof" accept="image/*,.pdf" <?php echo $isLocked ? 'disabled' : ''; ?>>
+                                <input type="file" class="form-control" name="payment_proof" accept="image/*,.pdf" <?php echo empty($applicant['payment_proof']) ? 'required' : ''; ?> <?php echo $isLocked ? 'disabled' : ''; ?>>
                             </div>
 
                             <?php if ($isLocked): ?>
